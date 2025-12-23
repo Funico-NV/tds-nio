@@ -1,33 +1,23 @@
-public struct TDSRow: CustomStringConvertible, Sendable {
-    final class LookupTable: @unchecked Sendable { // Mark LookupTable as @unchecked Sendable
+import Atomics
+
+public struct TDSRow {
+    
+    final class LookupTable: Sendable, AtomicReference {
         let colMetadata: TDSTokens.ColMetadataToken
 
-        struct Value {
+        struct Value: Sendable {
             let index: Int
             let colData: TDSTokens.ColMetadataToken.ColumnData
         }
 
-        private var _storage: [String: Value]?
-        var storage: [String: Value] {
-            if let existing = self._storage {
-                return existing
-            } else {
-                let all = self.colMetadata.colData.enumerated().map { (index, colData) in
-                    return (colData.colName, Value(index: index, colData: colData))
-                }
-                let storage = [String: Value](all) { a, b in
-                    // take the first value
-                    return a
-                }
-                self._storage = storage
-                return storage
-            }
-        }
+        let storage: [String: Value]
 
-        init(
-            colMetadata: TDSTokens.ColMetadataToken
-        ) {
+        init(colMetadata: TDSTokens.ColMetadataToken) {
             self.colMetadata = colMetadata
+            let all = colMetadata.colData.enumerated().map { (index, colData) in
+                (colData.colName, Value(index: index, colData: colData))
+            }
+            self.storage = [String: Value](all) { a, b in a }
         }
 
         func lookup(column: String) -> Value? {
@@ -35,6 +25,7 @@ public struct TDSRow: CustomStringConvertible, Sendable {
                 return value
             } else {
                 return nil
+                
             }
         }
     }
@@ -57,7 +48,12 @@ public struct TDSRow: CustomStringConvertible, Sendable {
             value: dataRow.colData[entry.index].data
         )
     }
+}
 
+extension TDSRow: Sendable {}
+
+extension TDSRow: CustomStringConvertible {
+    
     public var description: String {
         var row: [String: TDSData] = [:]
         for col in self.columnMetadata.colData {

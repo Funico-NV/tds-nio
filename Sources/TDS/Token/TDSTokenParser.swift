@@ -1,4 +1,4 @@
-public class TDSTokenParser {
+public final class TDSTokenParser {
     private var buffer: ByteBuffer
     private var colMetadata: TDSTokens.ColMetadataToken?
     private var logger: Logger
@@ -62,3 +62,5 @@ public class TDSTokenParser {
         return parsedTokens
     }
 }
+
+extension TDSTokenParser: Sendable {}
