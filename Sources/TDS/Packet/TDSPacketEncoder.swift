@@ -19,9 +19,10 @@ public final class TDSPacketEncoder: MessageToByteEncoder {
     }
 }
 
+extension TDSPacketEncoder: Sendable {}
+
+extension MessageToByteHandler: @retroactive RemovableChannelHandler {}
+
 protocol ByteBufferSerializable {
     func serialize(into buffer: inout ByteBuffer)
 }
-
-extension MessageToByteHandler: RemovableChannelHandler {}
-

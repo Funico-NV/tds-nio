@@ -3,7 +3,8 @@ import NIO
 /// Message Type. A 1-byte unsigned char
 /// https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-tds/ce398f9a-7d47-4ede-8f36-9dd6fc21ca43
 extension TDSPacket {
-    @frozen public struct Status: ExpressibleByIntegerLiteral, Equatable, CustomStringConvertible, Sendable {
+    
+    public struct Status: ExpressibleByIntegerLiteral {
         /// Normal message
         public static let normal: Status = 0x00
         /// End of message
@@ -17,14 +18,21 @@ extension TDSPacket {
         
         public let value: UInt8
         
-        /// See `CustomStringConvertible`.
-        public var description: String {
-            return String(format: "%02X", value)
-        }
-        
         /// See `ExpressibleByIntegerLiteral`.
         public init(integerLiteral value: UInt8) {
             self.value = value
         }
+    }
+}
+
+extension TDSPacket.Status: Sendable {}
+
+extension TDSPacket.Status: Equatable {}
+
+extension TDSPacket.Status: CustomStringConvertible {
+    
+    /// See `CustomStringConvertible`.
+    public var description: String {
+        return String(format: "%02X", value)
     }
 }

@@ -27,3 +27,5 @@ public final class TDSPacketDecoder: ByteToMessageDecoder {
         return .needMoreData
     }
 }
+
+extension TDSPacketDecoder: Sendable {}
