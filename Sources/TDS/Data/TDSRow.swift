@@ -1,6 +1,5 @@
-
-public struct TDSRow: CustomStringConvertible {
-    final class LookupTable {
+public struct TDSRow: CustomStringConvertible, Sendable {
+    final class LookupTable: @unchecked Sendable { // Mark LookupTable as @unchecked Sendable
         let colMetadata: TDSTokens.ColMetadataToken
 
         struct Value {
