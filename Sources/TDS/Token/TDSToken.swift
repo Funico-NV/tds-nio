@@ -1,6 +1,6 @@
 import NIO
 
-public protocol TDSToken {
+public protocol TDSToken: Sendable {
     var type: TDSTokens.TokenType { get set }
 }
 
@@ -33,7 +33,7 @@ public struct TypeMetadata: Metadata {
 
 public enum TDSTokens {
 
-    public enum TokenType: UInt8 {
+    public enum TokenType: UInt8, Sendable {
         /// ALTMETADATA
         case altMetadata = 0x88
         /// ALTROW
@@ -100,7 +100,7 @@ public enum TDSTokens {
         var count: UShort
         var colData: [ColumnData]
 
-        public struct ColumnData: Metadata {
+        public struct ColumnData: Metadata, Sendable {
             public var userType: ULong
             public var flags: UShort
             public var dataType: TDSDataType
@@ -152,7 +152,7 @@ public enum TDSTokens {
         var lineNumber: Int
     }
 
-    public struct EnvchangeToken<T>: TDSToken {
+    public struct EnvchangeToken<T: Sendable>: TDSToken {
         public var type: TokenType = .envchange
         var envchangeType: EnvchangeType
         var newValue: T

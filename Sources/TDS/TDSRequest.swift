@@ -13,7 +13,7 @@ extension TDSConnection: TDSClient {
     }
 }
 
-public protocol TDSRequest {
+public protocol TDSRequest: Sendable {
     func handle(packet: TDSPacket, allocator: ByteBufferAllocator) throws -> TDSPacketResponse
     func start(allocator: ByteBufferAllocator) throws -> [TDSPacket]
     func log(to logger: Logger)
@@ -26,18 +26,22 @@ public enum TDSPacketResponse {
     case kickoffSSL
 }
 
-final class TDSRequestContext {
+final class TDSRequestContext: @unchecked Sendable {
     let delegate: TDSRequest
     let promise: EventLoopPromise<Void>
-    var lastError: Error?
-    
+    private(set) var lastError: Error? // Make lastError read-only externally
+
     init(delegate: TDSRequest, promise: EventLoopPromise<Void>) {
         self.delegate = delegate
         self.promise = promise
     }
+
+    func setLastError(_ error: Error?) {
+        self.lastError = error // Provide a controlled way to modify lastError
+    }
 }
 
-final class TDSRequestHandler: ChannelDuplexHandler {
+final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
     typealias InboundIn = TDSPacket
     typealias OutboundIn = TDSRequestContext
     typealias OutboundOut = TDSPacket
@@ -48,7 +52,7 @@ final class TDSRequestHandler: ChannelDuplexHandler {
     var tlsConfiguration: TLSConfiguration?
     var serverHostname: String?
     
-    var sslClientHandler: NIOSSLClientHandler?
+    var sslClientHandler: NIOSSLClientHandler? // Retain as is, but ensure thread safety manually
     
     var pipelineCoordinator: PipelineOrganizationHandler!
     
