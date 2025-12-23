@@ -71,6 +71,16 @@ extension ByteBuffer {
         return utf16
     }
 
+    mutating func readUTF8String(length: Int) -> String? {
+        guard
+            let bytes = self.readBytes(length: length),
+            let utf8 = String(bytes: bytes, encoding: .utf8)
+        else {
+            return nil
+        }
+        return utf8
+    }
+
     mutating func readByte() -> Byte? {
         guard let val = self.readInteger(as: Byte.self) else {
             return nil

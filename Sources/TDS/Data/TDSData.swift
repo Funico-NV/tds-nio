@@ -13,7 +13,7 @@ public struct TDSData: CustomStringConvertible, CustomDebugStringConvertible {
     }
 
     public var description: String {
-        guard let value = self.value else {
+        guard let value, value.readableBytes != 0 else {
             return "<null>"
         }
 
@@ -35,7 +35,7 @@ public struct TDSData: CustomStringConvertible, CustomDebugStringConvertible {
         case .float, .floatn, .numeric, .numericLegacy, .decimal, .decimalLegacy, .smallMoney, .money, .moneyn:
             description = self.double?.description
         case .smallDateTime, .datetime, .datetimen, .date, .time, .datetime2, .datetimeOffset:
-            fatalError("Unimplemented")
+            description = self.date?.description
         case .charLegacy, .varcharLegacy, .char, .varchar, .nvarchar, .nchar, .text, .nText:
             description = self.string?.description
         case .binaryLegacy, .varbinaryLegacy, .varbinary, .binary:
@@ -61,8 +61,8 @@ public struct TDSData: CustomStringConvertible, CustomDebugStringConvertible {
             }
         }
 
-        if let description = description {
-            return description
+        if let description {
+            return "[\(self.metadata.dataType)] " + description
         } else {
             return "0x" + value.readableBytesView.hexdigest()
         }

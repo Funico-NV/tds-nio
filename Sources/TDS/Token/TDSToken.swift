@@ -121,6 +121,16 @@ public enum TDSTokens {
             var textPointer: [Byte]
             var timestamp: [Byte]
             var data: ByteBuffer
+            
+            init(
+                data: ByteBuffer,
+                textPointer: [Byte] = [],
+                timestamp: [Byte] = []
+            ) {
+                self.data = data
+                self.textPointer = textPointer
+                self.timestamp = timestamp
+            }
         }
     }
 
