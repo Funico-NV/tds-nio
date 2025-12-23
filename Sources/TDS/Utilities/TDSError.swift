@@ -1,6 +1,7 @@
 import Foundation
 
-public enum TDSError: Error, LocalizedError, CustomStringConvertible {
+public enum TDSError: Error, LocalizedError {
+    
     case protocolError(String)
     case connectionClosed
     case invalidCredentials
@@ -10,7 +11,12 @@ public enum TDSError: Error, LocalizedError, CustomStringConvertible {
     public var errorDescription: String? {
         return self.description
     }
+}
 
+extension TDSError: Sendable {}
+
+extension TDSError: CustomStringConvertible {
+    
     /// See `CustomStringConvertible`.
     public var description: String {
         let description: String
