@@ -10,10 +10,10 @@ let package = Package(
         .library(name: "TDS", targets: ["TDS"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.0.0"),
-        .package(url: "https://github.com/apple/swift-metrics.git", "1.0.0" ..< "3.0.0"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", .upToNextMinor(from: "2.92.0")),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMinor(from: "2.36.0")),
+        .package(url: "https://github.com/apple/swift-metrics.git", .upToNextMinor(from: "2.7.0")),
+        .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.8.0")),
     ],
     targets: [
         .target(name: "TDS", dependencies: [
