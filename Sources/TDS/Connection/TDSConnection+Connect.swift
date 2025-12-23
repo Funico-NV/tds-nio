@@ -13,7 +13,7 @@ extension TDSConnection {
     /// Supporting the case for only encrypting login packets provides little benefit and makes it impossible to provide a default (valid) TLSConfiguration.
     public static func connect(
         to socketAddress: SocketAddress,
-        tlsConfiguration: TLSConfiguration? = .forClient(),
+        tlsConfiguration: TLSConfiguration? = .makeClientConfiguration(),
         serverHostname: String? = nil,
         on eventLoop: EventLoop
     ) -> EventLoopFuture<TDSConnection> {
