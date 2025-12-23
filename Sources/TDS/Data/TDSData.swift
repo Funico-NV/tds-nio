@@ -62,7 +62,7 @@ public struct TDSData: CustomStringConvertible, CustomDebugStringConvertible {
         }
 
         if let description {
-            return description
+            return "[\(self.metadata.dataType)] " + description
         } else {
             return "0x" + value.readableBytesView.hexdigest()
         }

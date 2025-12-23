@@ -11,10 +11,7 @@ extension TDSTokenParser {
 
         func readSlice(_ buf: inout ByteBuffer, length: Int) throws -> ByteBuffer {
             guard let slice = buf.readSlice(length: length) else { throw TDSError.needMoreData }
-            var copy = allocator.buffer(capacity: slice.readableBytes)
-            var mutable = slice
-            copy.writeBuffer(&mutable)
-            return copy
+            return slice
         }
 
         func readVariableLength(_ buf: inout ByteBuffer, nullMarker: UInt16) throws -> ByteBuffer? {
@@ -59,13 +56,12 @@ extension TDSTokenParser {
 
         func readKind(for column: TDSTokens.ColMetadataToken.ColumnData) -> ColumnReadKind {
             switch column.dataType {
-            case .tinyInt: return .fixed(1)
+            case .null: return .fixed(0)
+            case .tinyInt, .bit: return .fixed(1)
             case .smallInt: return .fixed(2)
-            case .int: return .fixed(4)
-            case .bigInt: return .fixed(8)
-            case .bit: return .fixed(1)
-            case .real: return .fixed(4)
-            case .float: return .fixed(8)
+            case .date: return .fixed(3)
+            case .int, .smallDateTime, .real, .smallMoney: return .fixed(4)
+            case .money, .datetime, .float, .bigInt: return .fixed(8)
             case .guid: return .fixed(16)
             case .numeric, .decimal: return .numeric
             case .intn, .floatn: return .numeric
@@ -75,11 +71,23 @@ extension TDSTokenParser {
                 }
                 return .variable(nullMarker: UInt16.max)
             case .varbinary, .binary, .image, .xml: return .variable(nullMarker: UInt16.max)
-            default:
-                if let fixed = expectedFixedSize(of: column) {
-                    return .fixed(fixed)
-                }
-                return .variable(nullMarker: UInt16.max)
+                
+            case .decimalLegacy: return .variable(nullMarker: UInt16.max)
+            case .numericLegacy: return .variable(nullMarker: UInt16.max)
+            case .bitn: return .variable(nullMarker: UInt16.max)
+            case .moneyn: return .variable(nullMarker: UInt16.max)
+            case .datetimen: return .variable(nullMarker: UInt16.max)
+            case .time: return .variable(nullMarker: UInt16.max)
+            case .datetime2: return .variable(nullMarker: UInt16.max)
+            case .datetimeOffset: return .variable(nullMarker: UInt16.max)
+            case .charLegacy: return .variable(nullMarker: UInt16.max)
+            case .varcharLegacy: return .variable(nullMarker: UInt16.max)
+            case .binaryLegacy: return .variable(nullMarker: UInt16.max)
+            case .varbinaryLegacy: return .variable(nullMarker: UInt16.max)
+            case .clrUdt: return .variable(nullMarker: UInt16.max)
+            case .text: return .variable(nullMarker: UInt16.max)
+            case .nText: return .variable(nullMarker: UInt16.max)
+            case .sqlVariant: return .variable(nullMarker: UInt16.max)
             }
         }
 
@@ -89,24 +97,18 @@ extension TDSTokenParser {
         ) throws -> TDSTokens.RowToken.ColumnData {
 
             switch readKind(for: column) {
-
             case .fixed(let size):
-                return TDSTokens.RowToken.ColumnData(
-                    data: try readSlice(&buf, length: size)
-                )
-
+                return TDSTokens.RowToken.ColumnData(data: try readSlice(&buf, length: size))
             case .variable(let nullMarker):
                 if let payload = try readVariableLength(&buf, nullMarker: nullMarker) {
                     return TDSTokens.RowToken.ColumnData(data: payload)
                 }
                 return TDSTokens.RowToken.ColumnData(data: allocator.buffer(capacity: 0))
-
             case .plp:
                 if let plp = try readPLP(&buf) {
                     return TDSTokens.RowToken.ColumnData(data: plp)
                 }
                 return TDSTokens.RowToken.ColumnData(data: allocator.buffer(capacity: 0))
-
             case .numeric:
                 guard let length: UInt8 = buf.readInteger() else {
                     throw TDSError.needMoreData
@@ -118,29 +120,6 @@ extension TDSTokenParser {
 
                 let payload = try readSlice(&buf, length: Int(length))
                 return TDSTokens.RowToken.ColumnData(data: payload)
-            }
-        }
-
-        func expectedFixedSize(of column: TDSTokens.ColMetadataToken.ColumnData) -> Int? {
-            switch column.dataType {
-            case .tinyInt, .bit: 1
-            case .smallInt: 2
-            case .int, .real, .smallMoney, .smallDateTime: 4
-            case .bigInt, .float, .money, .datetime: 8
-            case .date: 3
-            case .time: timePayloadLength(scale: column.scale)
-            case .datetime2: timePayloadLength(scale: column.scale) + 3
-            case .datetimeOffset: timePayloadLength(scale: column.scale) + 5
-            case .guid: 16
-            default: nil
-            }
-        }
-
-        func timePayloadLength(scale: Int?) -> Int {
-            switch max(0, min(scale ?? 7, 7)) {
-            case 0...2: 3
-            case 3...4: 4
-            default: 5
             }
         }
 
