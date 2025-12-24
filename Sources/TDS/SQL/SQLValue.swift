@@ -11,10 +11,7 @@ public enum SQLValue {
     
     case null
     case bool(Bool)
-    case int8(Int8)
-    case int16(Int16)
-    case int32(Int32)
-    case int64(Int64)
+    case int(Int)
     case float(Float)
     case double(Double)
     case string(String)

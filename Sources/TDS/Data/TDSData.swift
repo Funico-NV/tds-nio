@@ -20,24 +20,24 @@ public struct TDSData {
         switch metadata.dataType {
         case .bit, .bitn:
             return .bool(value.readInteger() != 0)
-        case .tinyInt:
-            return .int8(value.readInteger()!)
-        case .smallInt:
-            return .int16(value.readInteger()!)
-        case .int:
-            return .int32(value.readInteger()!)
-        case .bigInt:
-            return .int64(value.readInteger()!)
+        case .tinyInt, .smallInt, .int, .bigInt:
+            guard let int: Int = value.readInteger() else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .int(int)
         case .float, .floatn, .real:
-            return .double(value.readDouble()!)
+            guard let double: Double = value.readDouble() else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .double(double)
         case .money:
-            return .double(value.readMoney()!)
+            guard let double: Double = value.readMoney() else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .double(double)
         case .smallMoney:
-            return .double(value.readSmallMoney()!)
+            guard let double: Double = value.readSmallMoney() else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .double(double)
         case .char, .varchar, .nvarchar:
-            return .string(value.readString(length: value.readableBytes)!)
+            guard let string: String = value.readString(length: value.readableBytes) else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .string(string)
         case .datetime, .datetime2, .date, .time:
-            return .date(try decodeDate(from: &value, type: metadata.dataType))
+//            return .date(try decodeDate(from: &value, type: metadata.dataType))
+            return .null // Temporarily disabled
         case .null:
             return .null
 
