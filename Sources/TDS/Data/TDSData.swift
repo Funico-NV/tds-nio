@@ -33,6 +33,9 @@ public struct TDSData {
             guard let int64: Int64 = value.readInteger() else { throw TDSError.unsupportedType(metadata.dataType) }
             return .int(Int(int64))
         case .float, .floatn, .real:
+            guard let float: Float = value.readFloat() else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .float(float)
+        case .decimal, .decimalLegacy, .numeric, .numericLegacy:
             guard let double: Double = value.readDouble() else { throw TDSError.unsupportedType(metadata.dataType) }
             return .double(double)
         case .money:
