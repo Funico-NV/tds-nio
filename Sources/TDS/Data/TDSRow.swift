@@ -1,4 +1,5 @@
 import Atomics
+import Foundation
 
 public struct TDSRow {
     
@@ -60,5 +61,20 @@ extension TDSRow: CustomStringConvertible {
             row[col.colName] = self.column(col.colName)
         }
         return row.description
+    }
+}
+
+extension TDSRow {
+    
+    public var jsonData: Data {
+        get throws {
+            var row: [String: Any] = [:]
+            for col in self.columnMetadata.colData {
+                if let jsonValue = self.column(col.colName)?.jsonValue {
+                    row[col.colName] = jsonValue
+                }
+            }
+            return try JSONSerialization.data(withJSONObject: row, options: [])
+        }
     }
 }

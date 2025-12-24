@@ -5,10 +5,10 @@ import Atomics
 
 extension TDSConnection {
     
-    public func query(_ sqlText: String) -> AsyncStream<TDSRow> {
-        AsyncStream { continuation in
+    public func query(_ sqlText: String) -> AsyncThrowingStream<Data, Error> {
+        AsyncThrowingStream { continuation in
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
-                continuation.yield(row)
+                try continuation.yield(row.jsonData)
             }
             
             self.send(request, logger: logger)

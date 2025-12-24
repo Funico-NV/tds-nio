@@ -86,3 +86,28 @@ extension TDSData: TDSDataConvertible {
         return self
     }
 }
+
+extension TDSData {
+    
+    /// Converts the TDSData value into a JSON-compatible format.
+    public var jsonValue: Any? {
+        guard let value, value.readableBytes != 0 else {
+            return nil
+        }
+
+        switch self.metadata.dataType {
+        case .bit, .bitn:
+            return self.bool
+        case .tinyInt, .smallInt, .int, .bigInt, .intn:
+            return self.int64
+        case .real, .float, .floatn, .numeric, .decimal, .smallMoney, .money, .moneyn:
+            return self.double
+        case .smallDateTime, .datetime, .datetimen, .date, .time, .datetime2, .datetimeOffset:
+            return self.date?.description
+        case .char, .varchar, .nvarchar, .nchar, .text, .nText:
+            return self.string
+        default:
+            return nil // Unsupported types can be handled here if needed.
+        }
+    }
+}
