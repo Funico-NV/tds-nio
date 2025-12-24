@@ -63,18 +63,3 @@ extension TDSRow: CustomStringConvertible {
         return row.description
     }
 }
-
-extension TDSRow {
-    
-    public var jsonData: Data {
-        get throws {
-            var row: [String: Any] = [:]
-            for col in self.columnMetadata.colData {
-                if let jsonValue = self.column(col.colName)?.jsonValue {
-                    row[col.colName] = jsonValue
-                }
-            }
-            return try JSONSerialization.data(withJSONObject: row, options: [])
-        }
-    }
-}
