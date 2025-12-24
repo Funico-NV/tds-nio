@@ -10,8 +10,9 @@ extension TDSConnection {
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
                 var sqlRow: SQLRow = [:]
                 for col in row.columnMetadata.colData {
-                    if let data = row.column(col.colName) {
-                        sqlRow[col.colName] = try data.decode()
+                    if let data = row.column(col.colName),
+                       let sqlValue = try? data.decode() {
+                        sqlRow[col.colName] = sqlValue
                     } else {
                         sqlRow[col.colName] = .null
                     }
