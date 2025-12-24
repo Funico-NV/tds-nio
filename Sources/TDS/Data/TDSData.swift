@@ -103,7 +103,7 @@ extension TDSData {
         case .real, .float, .floatn, .numeric, .decimal, .smallMoney, .money, .moneyn:
             return self.double
         case .smallDateTime, .datetime, .datetimen, .date, .time, .datetime2, .datetimeOffset:
-            return self.date?.description
+            return self.date
         case .char, .varchar, .nvarchar, .nchar, .text, .nText:
             return self.string
         default:
