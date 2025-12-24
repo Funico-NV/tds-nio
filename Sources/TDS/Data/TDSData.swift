@@ -19,36 +19,29 @@ public struct TDSData {
 
         switch metadata.dataType {
         case .bit, .bitn:
-            return .bool(value.readInteger() != 0)
-        case .tinyInt:
-            guard let int8: Int8 = value.readInteger() else { throw TDSError.unsupportedType(metadata.dataType) }
-            return .int(Int(int8))
-        case .smallInt:
-            guard let int16: Int16 = value.readInteger() else { throw TDSError.unsupportedType(metadata.dataType) }
-            return .int(Int(int16))
-        case .int:
-            guard let int32: Int32 = value.readInteger() else { throw TDSError.unsupportedType(metadata.dataType) }
-            return .int(Int(int32))
-        case .bigInt:
-            guard let int64: Int64 = value.readInteger() else { throw TDSError.unsupportedType(metadata.dataType) }
-            return .int(Int(int64))
-        case .float, .floatn, .real:
-            guard let float: Float = value.readFloat() else { throw TDSError.unsupportedType(metadata.dataType) }
+            guard let bool else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .bool(bool)
+        case .tinyInt, .smallInt, .int, .bigInt:
+            guard let int else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .int(int)
+        case .real, .float:
+            guard let float else { throw TDSError.unsupportedType(metadata.dataType) }
             return .float(float)
-        case .decimal, .decimalLegacy, .numeric, .numericLegacy:
-            guard let double: Double = value.readDouble() else { throw TDSError.unsupportedType(metadata.dataType) }
+        case .numeric, .decimal:
+            guard let double else { throw TDSError.unsupportedType(metadata.dataType) }
             return .double(double)
-        case .money:
-            guard let double: Double = value.readMoney() else { throw TDSError.unsupportedType(metadata.dataType) }
+        case .money, .smallMoney:
+            guard let double else { throw TDSError.unsupportedType(metadata.dataType) }
             return .double(double)
-        case .smallMoney:
-            guard let double: Double = value.readSmallMoney() else { throw TDSError.unsupportedType(metadata.dataType) }
-            return .double(double)
-        case .char, .varchar, .nvarchar:
-            guard let string: String = value.readString(length: value.readableBytes) else { throw TDSError.unsupportedType(metadata.dataType) }
+        case .charLegacy, .varcharLegacy, .char, .varchar:
+            guard let string else { throw TDSError.unsupportedType(metadata.dataType) }
             return .string(string)
-        case .datetime, .datetime2, .date, .time:
-            return .date(try decodeDate(from: &value, type: metadata.dataType))
+        case .nvarchar, .nchar, .text, .nText:
+            guard let string else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .string(string)
+        case .smallDateTime, .datetime, .datetime2, .date, .time, .datetimeOffset:
+            guard let date else { throw TDSError.unsupportedType(metadata.dataType) }
+            return .date(date)
         case .null:
             return .null
 
