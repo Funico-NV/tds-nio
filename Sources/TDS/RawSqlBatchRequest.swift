@@ -5,6 +5,25 @@ import Atomics
 
 extension TDSConnection {
     
+    public func query(_ sqlText: String) -> AsyncThrowingStream<SQLRow, Error> {
+        AsyncThrowingStream { continuation in
+            let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
+                var sqlRow: SQLRow = [:]
+                for col in row.columnMetadata.colData {
+                    if let data = row.column(col.colName) {
+                        sqlRow[col.colName] = try data.decode()
+                    } else {
+                        sqlRow[col.colName] = .null
+                    }
+                }
+                continuation.yield(sqlRow)
+            }
+            
+            self.send(request, logger: logger)
+                .whenComplete { _ in continuation.finish() }
+        }
+    }
+    
     public func query(_ sqlText: String) -> AsyncStream<TDSRow> {
         AsyncStream { continuation in
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in

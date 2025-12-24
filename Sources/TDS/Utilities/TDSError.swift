@@ -6,6 +6,7 @@ public enum TDSError: Error, LocalizedError {
     case connectionClosed
     case invalidCredentials
     case needMoreData
+    case unsupportedType(TDSDataType)
 
     /// See `LocalizedError`.
     public var errorDescription: String? {
@@ -28,7 +29,9 @@ extension TDSError: CustomStringConvertible {
         case .invalidCredentials:
             description = "Invalid login credentials"
         case .needMoreData:
-            description = "need more data"
+            description = "Need more data"
+        case .unsupportedType(let dataType):
+            description = "Unsupported data type: \(dataType)"
         }
         return "TDS error: \(description)"
     }

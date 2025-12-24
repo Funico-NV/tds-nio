@@ -1,7 +1,7 @@
 import NIO
 import Foundation
 
-public struct TDSData: CustomStringConvertible, CustomDebugStringConvertible {
+public struct TDSData {
     /// The object ID of the field's data type.
     public var metadata: Metadata
 
@@ -11,7 +11,44 @@ public struct TDSData: CustomStringConvertible, CustomDebugStringConvertible {
         self.metadata = metadata
         self.value = value
     }
+    
+    public func decode() throws -> SQLValue {
+        guard var value, value.readableBytes != 0 else {
+            return .null
+        }
 
+        switch metadata.dataType {
+        case .bit, .bitn:
+            return .bool(value.readInteger() != 0)
+        case .tinyInt:
+            return .int8(value.readInteger()!)
+        case .smallInt:
+            return .int16(value.readInteger()!)
+        case .int:
+            return .int32(value.readInteger()!)
+        case .bigInt:
+            return .int64(value.readInteger()!)
+        case .float, .floatn, .real:
+            return .double(value.readDouble()!)
+        case .money:
+            return .double(value.readMoney()!)
+        case .smallMoney:
+            return .double(value.readSmallMoney()!)
+        case .char, .varchar, .nvarchar:
+            return .string(value.readString(length: value.readableBytes)!)
+        case .datetime, .datetime2, .date, .time:
+            return .date(try decodeDate(from: &value, type: metadata.dataType))
+        case .null:
+            return .null
+
+        default:
+            throw TDSError.unsupportedType(metadata.dataType)
+        }
+    }
+}
+
+extension TDSData: CustomStringConvertible, CustomDebugStringConvertible {
+    
     public var description: String {
         guard let value, value.readableBytes != 0 else {
             return "<null>"
@@ -86,3 +123,102 @@ extension TDSData: TDSDataConvertible {
         return self
     }
 }
+
+fileprivate extension TDSData {
+    
+    func decodeDate(from buffer: inout ByteBuffer, type: TDSDataType) throws -> Date {
+        switch type {
+
+        // MARK: - DATETIME (8 bytes)
+        case .datetime:
+            let days: Int32 = buffer.readInteger(endianness: .little)!
+            let ticks: Int32 = buffer.readInteger(endianness: .little)! // 1/300 sec
+
+            let seconds = Double(ticks) / 300.0
+            return sqlDate1900
+                .addingTimeInterval(TimeInterval(days) * 86_400)
+                .addingTimeInterval(seconds)
+
+        // MARK: - SMALLDATETIME (4 bytes)
+        case .smallDateTime:
+            let days: Int16 = buffer.readInteger(endianness: .little)!
+            let minutes: Int16 = buffer.readInteger(endianness: .little)!
+
+            return sqlDate1900
+                .addingTimeInterval(TimeInterval(days) * 86_400)
+                .addingTimeInterval(TimeInterval(minutes) * 60)
+
+        // MARK: - DATE (3 bytes)
+        case .date:
+            let days: Int32 = buffer.readInteger(endianness: .little, as: Int32.self)!
+
+            return sqlDate0001
+                .addingTimeInterval(TimeInterval(days) * 86_400)
+
+        // MARK: - TIME(n)
+        case .time:
+            let ticks = try readVariableLengthInt(from: &buffer)
+            let scale = metadata.scale ?? 7
+            let seconds = Double(ticks) / pow(10, Double(scale))
+
+            return sqlDate0001.addingTimeInterval(seconds)
+
+        // MARK: - DATETIME2(n)
+        case .datetime2:
+            let timeTicks = try readVariableLengthInt(from: &buffer)
+            let dateDays: Int32 = buffer.readInteger(endianness: .little)!
+
+            let scale = metadata.scale ?? 7
+            let seconds = Double(timeTicks) / pow(10, Double(scale))
+
+            return sqlDate0001
+                .addingTimeInterval(TimeInterval(dateDays) * 86_400)
+                .addingTimeInterval(seconds)
+
+        // MARK: - DATETIMEOFFSET(n)
+        case .datetimeOffset:
+            let timeTicks = try readVariableLengthInt(from: &buffer)
+            let dateDays: Int32 = buffer.readInteger(endianness: .little)!
+            let offsetMinutes: Int16 = buffer.readInteger(endianness: .little)!
+
+            let scale = metadata.scale ?? 7
+            let seconds = Double(timeTicks) / pow(10, Double(scale))
+
+            let utcDate = sqlDate0001
+                .addingTimeInterval(TimeInterval(dateDays) * 86_400)
+                .addingTimeInterval(seconds)
+
+            // Offset is applied *after* construction
+            return utcDate.addingTimeInterval(TimeInterval(-offsetMinutes * 60))
+
+        default:
+            throw TDSError.unsupportedType(type)
+        }
+    }
+
+    func readVariableLengthInt(from buffer: inout ByteBuffer) throws -> Int64 {
+        let length = buffer.readableBytes
+        guard (3...5).contains(length) else {
+            throw TDSError.protocolError("Invalid TIME length: \(length)")
+        }
+
+        var value: Int64 = 0
+        for i in 0..<length {
+            let byte: UInt8 = buffer.readInteger()!
+            value |= Int64(byte) << (8 * i)
+        }
+        return value
+    }
+}
+
+private let sqlDate1900 = DateComponents(
+    calendar: Calendar(identifier: .gregorian),
+    timeZone: TimeZone(secondsFromGMT: 0),
+    year: 1900, month: 1, day: 1
+).date!
+
+private let sqlDate0001 = DateComponents(
+    calendar: Calendar(identifier: .gregorian),
+    timeZone: TimeZone(secondsFromGMT: 0),
+    year: 1, month: 1, day: 1
+).date!
