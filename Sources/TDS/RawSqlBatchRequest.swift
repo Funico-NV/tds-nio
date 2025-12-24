@@ -1,38 +1,36 @@
 import Logging
 import NIO
 import Foundation
+import Atomics
 
 extension TDSConnection {
-    public func rawSql(_ sqlText: String) -> EventLoopFuture<[TDSRow]> {
-        var rows: [TDSRow] = []
-        return rawSql(sqlText, onRow: { rows.append($0) }).map { rows }
-    }
     
-    public func rawSql(_ sqlText: String, onRow: @escaping (TDSRow) throws -> ()) -> EventLoopFuture<Void> {
-        let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger, onRow)
-        return self.send(request, logger: logger)
-    }
-
-
-    func query(_ message: TDSMessages.RawSqlBatchMessage, _ onRow: @escaping (TDSRow) throws -> ()) -> EventLoopFuture<Void> {
-        let request = RawSqlBatchRequest(sqlBatch: message, logger: logger, onRow)
-        return self.send(request, logger: logger)
+    public func query(_ sqlText: String) -> AsyncStream<TDSRow> {
+        AsyncStream { continuation in
+            let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
+                continuation.yield(row)
+            }
+            
+            self.send(request, logger: logger)
+                .whenComplete { _ in continuation.finish() }
+        }
     }
 }
 
-class RawSqlBatchRequest: TDSRequest {
+final class RawSqlBatchRequest: TDSRequest, Sendable {
     let sqlBatch: TDSMessages.RawSqlBatchMessage
-    var onRow: (TDSRow) throws -> ()
-    var rowLookupTable: TDSRow.LookupTable?
+    let onRow: @Sendable (TDSRow) throws -> ()
+    let rowLookupTable: ManagedAtomic<TDSRow.LookupTable?>
     
     private let logger: Logger
     private let tokenParser: TDSTokenParser
 
-    init(sqlBatch: TDSMessages.RawSqlBatchMessage, logger: Logger, _ onRow: @escaping (TDSRow) throws -> ()) {
+    init(sqlBatch: TDSMessages.RawSqlBatchMessage, logger: Logger, _ onRow: @escaping @Sendable (TDSRow) throws -> ()) {
         self.sqlBatch = sqlBatch
         self.onRow = onRow
         self.logger = logger
         self.tokenParser = TDSTokenParser(logger: logger)
+        self.rowLookupTable = ManagedAtomic(nil)
     }
 
     func handle(packet: TDSPacket, allocator: ByteBufferAllocator) throws -> TDSPacketResponse {
@@ -62,14 +60,14 @@ class RawSqlBatchRequest: TDSRequest {
                 guard let rowToken = token as? TDSTokens.RowToken else {
                     throw TDSError.protocolError("Error while reading row results.")
                 }
-                guard let rowLookupTable = self.rowLookupTable else { fatalError() }
+                guard let rowLookupTable = self.rowLookupTable.load(ordering: .relaxed) else { fatalError() }
                 let row = TDSRow(dataRow: rowToken, lookupTable: rowLookupTable)
                 try onRow(row)
             case .colMetadata:
                 guard let colMetadataToken = token as? TDSTokens.ColMetadataToken else {
                     throw TDSError.protocolError("Error reading column metadata token.")
                 }
-                rowLookupTable = TDSRow.LookupTable(colMetadata: colMetadataToken)
+                self.rowLookupTable.store(TDSRow.LookupTable(colMetadata: colMetadataToken), ordering: .relaxed)
             default:
                 break
             }

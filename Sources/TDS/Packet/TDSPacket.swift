@@ -75,7 +75,10 @@ public struct TDSPacket {
     }
 }
 
+extension TDSPacket: Sendable {}
+
 extension TDSPacket {
+    
     public static let defaultPacketLength = 1000
     public static let headerLength = 8
     public static let maximumPacketDataLength = TDSPacket.defaultPacketLength - 8

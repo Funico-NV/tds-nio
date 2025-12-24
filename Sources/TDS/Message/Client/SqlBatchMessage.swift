@@ -8,7 +8,7 @@ extension TDSMessages {
     public struct RawSqlBatchMessage: TDSMessagePayload {
         public static let packetType: TDSPacket.HeaderType = .sqlBatch
 
-        var sqlText: String
+        let sqlText: String
 
         public func serialize(into buffer: inout ByteBuffer) throws {
             TDSMessage.serializeAllHeaders(&buffer)
@@ -17,3 +17,5 @@ extension TDSMessages {
         }
     }
 }
+
+extension TDSMessages.RawSqlBatchMessage: Sendable {}

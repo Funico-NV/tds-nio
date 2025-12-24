@@ -1,6 +1,7 @@
 import Foundation
 import NIO
 import Logging
+import Atomics
 
 public final class TDSConnection {
     let channel: Channel
@@ -15,7 +16,7 @@ public final class TDSConnection {
     
     public var logger: Logger
 
-    private var didClose: Bool
+    private let didClose: ManagedAtomic<Bool>
 
     public var isClosed: Bool {
         return !self.channel.isActive
@@ -24,14 +25,14 @@ public final class TDSConnection {
     init(channel: Channel, logger: Logger) {
         self.channel = channel
         self.logger = logger
-        self.didClose = false
+        self.didClose = ManagedAtomic(false)
     }
     
     public func close() -> EventLoopFuture<Void> {
-        guard !self.didClose else {
+        guard !self.didClose.load(ordering: .relaxed) else {
             return self.eventLoop.makeSucceededFuture(())
         }
-        self.didClose = true
+        self.didClose.store(true, ordering: .relaxed)
         
         let promise = self.eventLoop.makePromise(of: Void.self)
         self.eventLoop.submit {
@@ -46,7 +47,6 @@ public final class TDSConnection {
     }
     
     deinit {
-        assert(self.didClose, "TDSConnection deinitialized before being closed.")
+        assert(self.didClose.load(ordering: .relaxed), "TDSConnection deinitialized before being closed.")
     }
 }
-

@@ -3,7 +3,8 @@ import NIO
 /// Message Type. A 1-byte unsigned char
 /// https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-tds/9b4a463c-2634-4a4b-ac35-bebfff2fb0f7
 extension TDSPacket {
-    @frozen public struct HeaderType: ExpressibleByIntegerLiteral, Equatable, CustomStringConvertible, Sendable {
+    
+    public struct HeaderType: ExpressibleByIntegerLiteral {
         /// SQL Batch
         public static let sqlBatch: HeaderType = 0x01
         
@@ -48,11 +49,6 @@ extension TDSPacket {
         
         public let value: Byte
         
-        /// See `CustomStringConvertible`.
-        public var description: String {
-            return String(format: "%02X", value)
-        }
-        
         /// See `ExpressibleByIntegerLiteral`.
         public init(integerLiteral value: UInt8) {
             self.value = value
@@ -60,7 +56,20 @@ extension TDSPacket {
     }
 }
 
+extension TDSPacket.HeaderType: Sendable {}
+
+extension TDSPacket.HeaderType: Equatable {}
+
+extension TDSPacket.HeaderType: CustomStringConvertible {
+    
+    /// See `CustomStringConvertible`.
+    public var description: String {
+        return String(format: "%02X", value)
+    }
+}
+
 extension ByteBuffer {
+    
     mutating func write(headerType: TDSPacket.HeaderType) {
         self.writeInteger(headerType.value)
     }
