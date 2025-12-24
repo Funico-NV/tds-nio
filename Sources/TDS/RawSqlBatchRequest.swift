@@ -24,7 +24,7 @@ extension TDSConnection {
         }
     }
     
-    public func query(_ sqlText: String) -> AsyncStream<TDSRow> {
+    public func tdsQuery(_ sqlText: String) -> AsyncStream<TDSRow> {
         AsyncStream { continuation in
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
                 continuation.yield(row)
