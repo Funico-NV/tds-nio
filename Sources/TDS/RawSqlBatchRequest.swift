@@ -8,16 +8,20 @@ extension TDSConnection {
     public func query(_ sqlText: String) -> AsyncThrowingStream<SQLRow, Error> {
         AsyncThrowingStream { continuation in
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
-                var sqlRow: SQLRow = [:]
-                for col in row.columnMetadata.colData {
-                    if let data = row.column(col.colName),
-                       let sqlValue = try? data.decode() {
-                        sqlRow[col.colName] = sqlValue
-                    } else {
-                        sqlRow[col.colName] = .null
+                do {
+                    var sqlRow: SQLRow = [:]
+                    for col in row.columnMetadata.colData {
+                        if let data = row.column(col.colName) {
+                            let sqlValue = try data.decode()
+                            sqlRow[col.colName] = sqlValue
+                        } else {
+                            sqlRow[col.colName] = .null
+                        }
                     }
+                    continuation.yield(sqlRow)
+                } catch {
+                    continuation.yield(with: .failure(error))
                 }
-                continuation.yield(sqlRow)
             }
             
             self.send(request, logger: logger)
