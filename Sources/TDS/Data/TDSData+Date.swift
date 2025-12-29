@@ -32,7 +32,6 @@ extension TDSData {
             secondsSinceJan1900 += Int64(minutesElapsed) * 60
             
             return Date(timeInterval: Double(secondsSinceJan1900), since: _jan1)
-            
         case .datetime:
             guard
                 value.readableBytes == 8,
@@ -49,7 +48,27 @@ extension TDSData {
             let interval = Double(secondsSinceJan1900) + secondsSinceMidnight
             
             return Date(timeInterval: interval, since: _jan1900)
+        case .datetimen:
+            // If the first byte indicates a null marker, skip it
+            if let first = value.getInteger(at: value.readerIndex, as: UInt8.self), first == 0x00 {
+                return nil
+            }
             
+            guard
+                value.readableBytes == 8,
+                // One 4-byte signed integer that represents the number of days since January 1, 1900. Negative numbers are allowed to represent dates since January 1, 1753.
+                let daysSinceJan1900 = value.readInteger(endianness: .little, as: Int32.self),
+                // One 4-byte unsigned integer that represents the number of one three-hundredths of a second (300 counts per second) elapsed since 12 AM that day.
+                let oneThreeHundrethsOfASecondElapsed = value.readInteger(endianness: .little, as: UInt32.self)
+            else {
+                return nil
+            }
+            
+            let secondsSinceJan1900 = Int64(daysSinceJan1900) * _secondsInDay
+            let secondsSinceMidnight = Double(oneThreeHundrethsOfASecondElapsed) / 300
+            let interval = Double(secondsSinceJan1900) + secondsSinceMidnight
+            
+            return Date(timeInterval: interval, since: _jan1900)
         case .date:
             return value.readDate()
         case .time:
