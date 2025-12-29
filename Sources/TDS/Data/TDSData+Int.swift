@@ -94,9 +94,9 @@ private extension TDSData {
         case 16:
             capacity = 2
         case 32:
-            capacity = 3
-        case 64:
             capacity = 4
+        case 64:
+            capacity = 8
         default:
             fatalError("Cannot encode \(I.self) to TDSData")
         }
