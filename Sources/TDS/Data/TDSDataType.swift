@@ -102,6 +102,23 @@ public enum TDSDataType: UInt8, Sendable {
             return false
         }
     }
+    
+    func isOptionalType() -> Bool {
+        switch self {
+        // Numeric / date types with built-in null encoding
+        case .intn, .bitn, .moneyn, .floatn, .datetimen:
+            return true
+        // Variable-length strings / binary / text types
+        case .varchar, .nvarchar, .varbinary, .text, .nText, .binary, .char, .nchar:
+            return true
+        // SQL Variant can also be null
+        case .sqlVariant:
+            return true
+        // Everything else is fixed-length and only nullable per-row via null bitmap
+        default:
+            return false
+        }
+    }
 
     func isPrecisionType() -> Bool {
         switch self {
