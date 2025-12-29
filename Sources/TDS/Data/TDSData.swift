@@ -13,7 +13,7 @@ public struct TDSData {
     }
     
     public func decode() throws -> SQLValue {
-        guard var value, value.readableBytes != 0 else {
+        guard let value, value.readableBytes != 0 else {
             return .null
         }
 
@@ -39,14 +39,43 @@ public struct TDSData {
         case .nvarchar, .nchar, .text, .nText:
             guard let string else { throw TDSError.unsupportedType(metadata.dataType) }
             return .string(string)
-        case .smallDateTime, .datetime, .datetime2, .date, .time, .datetimeOffset:
+        case .smallDateTime, .datetime, .datetimen, .datetime2, .date, .time, .datetimeOffset:
             guard let date else { throw TDSError.unsupportedType(metadata.dataType) }
             return .date(date)
         case .null:
             return .null
-
         default:
             throw TDSError.unsupportedType(metadata.dataType)
+            
+        //TODO: Implement remaining types
+        /*case .guid:
+            <#code#>
+        case .intn:
+            <#code#>
+        case .decimalLegacy:
+            <#code#>
+        case .numericLegacy:
+            <#code#>
+        case .floatn:
+            <#code#>
+        case .moneyn:
+            <#code#>
+        case .binaryLegacy:
+            <#code#>
+        case .varbinaryLegacy:
+            <#code#>
+        case .varbinary:
+            <#code#>
+        case .binary:
+            <#code#>
+        case .xml:
+            <#code#>
+        case .clrUdt:
+            <#code#>
+        case .image:
+            <#code#>
+        case .sqlVariant:
+            <#code#>*/
         }
     }
 }
