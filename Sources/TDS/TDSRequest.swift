@@ -8,9 +8,7 @@ extension TDSConnection: TDSClient {
         request.log(to: self.logger)
         let promise = self.channel.eventLoop.makePromise(of: Void.self)
         let request = TDSRequestContext(delegate: request, promise: promise)
-        // Writing the request must NOT complete the promise.
-        // The promise represents protocol-level completion (DONE / error).
-        self.channel.writeAndFlush(request, promise: nil)
+        self.channel.writeAndFlush(request).cascadeFailure(to: promise)
         return promise.futureResult
     }
 }
@@ -113,7 +111,6 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
                 try write(context: context, packets: packets, promise: nil)
                 context.flush()
             case .continue:
-                // Still processing; wait for DONE token
                 return
             case .done:
                 cleanupRequest(request)
@@ -143,7 +140,6 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
     }
     
     private func cleanupRequest(_ request: TDSRequestContext, error: Error? = nil) {
-        precondition(self.queue.first === request, "Request cleanup out of order")
         self.queue.removeFirst()
         if let error = error {
             request.promise.fail(error)
@@ -218,10 +214,7 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
     
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
         print(error.localizedDescription)
-        if let request = self.currentRequest {
-            self.cleanupRequest(request, error: error)
-        }
-        context.close(promise: nil)
+        context.fireErrorCaught(error)
     }
     
     
@@ -240,13 +233,8 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
             
             future.whenSuccess { _ in
                 self.logger.debug("Done w/ SSL Handshake and pipeline organization")
-
-                let previousState = self.state
                 self.state = .sslHandshakeComplete
-
-                // Complete PRELOGIN *only* if that was the active request
-                if let request = self.currentRequest,
-                   case .sentPrelogin = previousState {
+                if let request = self.currentRequest {
                     self.cleanupRequest(request)
                 }
             }
