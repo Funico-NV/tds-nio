@@ -8,7 +8,9 @@ extension TDSConnection: TDSClient {
         request.log(to: self.logger)
         let promise = self.channel.eventLoop.makePromise(of: Void.self)
         let request = TDSRequestContext(delegate: request, promise: promise)
-        self.channel.writeAndFlush(request).cascadeFailure(to: promise)
+        // Writing the request must NOT complete the promise.
+        // The promise represents protocol-level completion (DONE / error).
+        self.channel.writeAndFlush(request, promise: nil)
         return promise.futureResult
     }
 }
@@ -140,6 +142,7 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
     }
     
     private func cleanupRequest(_ request: TDSRequestContext, error: Error? = nil) {
+        guard !self.queue.isEmpty else { return }
         self.queue.removeFirst()
         if let error = error {
             request.promise.fail(error)
@@ -214,7 +217,10 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
     
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
         print(error.localizedDescription)
-        context.fireErrorCaught(error)
+        if let request = self.currentRequest {
+            self.cleanupRequest(request, error: error)
+        }
+        context.close(promise: nil)
     }
     
     
@@ -234,7 +240,9 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
             future.whenSuccess {_ in
                 self.logger.debug("Done w/ SSL Handshake and pipeline organization")
                 self.state = .sslHandshakeComplete
-                if let request = self.currentRequest {
+                // Only complete the PRELOGIN request on SSL handshake completion
+                if let request = self.currentRequest,
+                   case .sentPrelogin = self.state {
                     self.cleanupRequest(request)
                 }
             }
