@@ -7,6 +7,7 @@ extension TDSConnection {
     
     public func query(_ sqlText: String) -> AsyncThrowingStream<SQLRow, Error> {
         AsyncThrowingStream { continuation in
+            let finished = ManagedAtomic(false)
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
                 do {
                     var sqlRow: SQLRow = [:]
@@ -20,23 +21,45 @@ extension TDSConnection {
                     }
                     continuation.yield(sqlRow)
                 } catch {
-                    continuation.yield(with: .failure(error))
+                    finishOnce(error)
                 }
             }
-            
             self.send(request, logger: logger)
-                .whenComplete { _ in continuation.finish() }
+                .whenComplete { result in
+                    switch result {
+                    case .success:
+                        finishOnce()
+                    case .failure(let error):
+                        finishOnce(error)
+                    }
+                }
+            
+            @Sendable func finishOnce(_ error: Error? = nil) {
+                if finished.compareExchange(expected: false, desired: true, ordering: .relaxed).exchanged {
+                    if let error = error {
+                        continuation.finish(throwing: error)
+                    } else {
+                        continuation.finish()
+                    }
+                }
+            }
         }
     }
     
     public func tdsQuery(_ sqlText: String) -> AsyncStream<TDSRow> {
         AsyncStream { continuation in
+            let finished = ManagedAtomic(false)
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
                 continuation.yield(row)
             }
-            
             self.send(request, logger: logger)
-                .whenComplete { _ in continuation.finish() }
+                .whenComplete { _ in finishOnce() }
+            
+            func finishOnce() {
+                if finished.compareExchange(expected: false, desired: true, ordering: .relaxed).exchanged {
+                    continuation.finish()
+                }
+            }
         }
     }
 }
@@ -61,11 +84,10 @@ final class RawSqlBatchRequest: TDSRequest, Sendable {
         // Add packet to token parser stream
         let parsedTokens = tokenParser.writeAndParseTokens(packet.messageBuffer)
         try handleParsedTokens(parsedTokens)
-        guard packet.header.status == .eom else {
-            return .continue
+        if packet.header.status == .eom {
+            return .done
         }
-
-        return .done
+        return .continue
     }
 
     func start(allocator: ByteBufferAllocator) throws -> [TDSPacket] {
