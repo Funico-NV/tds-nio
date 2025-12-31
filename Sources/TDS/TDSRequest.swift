@@ -113,6 +113,7 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
                 try write(context: context, packets: packets, promise: nil)
                 context.flush()
             case .continue:
+                // Still processing; wait for DONE token
                 return
             case .done:
                 cleanupRequest(request)
@@ -142,7 +143,7 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
     }
     
     private func cleanupRequest(_ request: TDSRequestContext, error: Error? = nil) {
-        guard !self.queue.isEmpty else { return }
+        precondition(self.queue.first === request, "Request cleanup out of order")
         self.queue.removeFirst()
         if let error = error {
             request.promise.fail(error)
@@ -237,12 +238,15 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
                 context.channel.pipeline.addHandler(MessageToByteHandler(TDSPacketEncoder(logger: logger)), position: .after(sslHandler))
             ], on: context.eventLoop)
             
-            future.whenSuccess {_ in
+            future.whenSuccess { _ in
                 self.logger.debug("Done w/ SSL Handshake and pipeline organization")
+
+                let previousState = self.state
                 self.state = .sslHandshakeComplete
-                // Only complete the PRELOGIN request on SSL handshake completion
+
+                // Complete PRELOGIN *only* if that was the active request
                 if let request = self.currentRequest,
-                   case .sentPrelogin = self.state {
+                   case .sentPrelogin = previousState {
                     self.cleanupRequest(request)
                 }
             }
