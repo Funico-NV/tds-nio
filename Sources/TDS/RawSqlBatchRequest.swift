@@ -9,20 +9,20 @@ extension TDSConnection {
         AsyncThrowingStream { continuation in
             let finished = ManagedAtomic(false)
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
-                do {
                     var sqlRow: SQLRow = [:]
                     for col in row.columnMetadata.colData {
                         if let data = row.column(col.colName) {
-                            let sqlValue = try data.decode()
-                            sqlRow[col.colName] = sqlValue
+                            do {
+                                let sqlValue = try data.decode()
+                                sqlRow[col.colName] = sqlValue
+                            } catch {
+                                finishOnce(error)
+                            }
                         } else {
                             sqlRow[col.colName] = .null
                         }
                     }
                     continuation.yield(sqlRow)
-                } catch {
-                    finishOnce(error)
-                }
             }
             self.send(request, logger: logger)
                 .whenComplete { result in
