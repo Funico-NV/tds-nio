@@ -65,6 +65,8 @@ extension TDSTokenParser {
             case .guid: return .fixed(16)
             case .numeric, .decimal: return .numeric
             case .intn, .floatn: return .numeric
+            case .bitn, .moneyn, .datetimen, .time, .datetime2, .datetimeOffset:
+                return .numeric
             case .nvarchar, .nchar, .varchar, .char:
                 if column.length >= 0xFFFF {
                     return .plp
@@ -74,12 +76,6 @@ extension TDSTokenParser {
                 
             case .decimalLegacy: return .variable(nullMarker: UInt16.max)
             case .numericLegacy: return .variable(nullMarker: UInt16.max)
-            case .bitn: return .variable(nullMarker: UInt16.max)
-            case .moneyn: return .variable(nullMarker: UInt16.max)
-            case .datetimen: return .variable(nullMarker: UInt16.max)
-            case .time: return .variable(nullMarker: UInt16.max)
-            case .datetime2: return .variable(nullMarker: UInt16.max)
-            case .datetimeOffset: return .variable(nullMarker: UInt16.max)
             case .charLegacy: return .variable(nullMarker: UInt16.max)
             case .varcharLegacy: return .variable(nullMarker: UInt16.max)
             case .binaryLegacy: return .variable(nullMarker: UInt16.max)
