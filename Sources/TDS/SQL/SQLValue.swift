@@ -16,4 +16,5 @@ public enum SQLValue {
     case double(Double)
     case string(String)
     case date(Date)
+    case uuid(UUID)
 }

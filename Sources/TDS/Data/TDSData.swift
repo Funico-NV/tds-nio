@@ -21,13 +21,13 @@ public struct TDSData {
         case .bit, .bitn:
             guard let bool else { throw TDSError.unsupportedType(metadata.dataType) }
             return .bool(bool)
-        case .tinyInt, .smallInt, .int, .bigInt:
+        case .tinyInt, .smallInt, .int, .bigInt, .intn:
             guard let int else { throw TDSError.unsupportedType(metadata.dataType) }
             return .int(int)
         case .real, .float:
             guard let float else { throw TDSError.unsupportedType(metadata.dataType) }
             return .float(float)
-        case .numeric, .decimal:
+        case .numeric, .decimal, .decimalLegacy, .numericLegacy, .floatn, .moneyn:
             guard let double else { throw TDSError.unsupportedType(metadata.dataType) }
             return .double(double)
         case .money, .smallMoney:
@@ -42,40 +42,28 @@ public struct TDSData {
         case .smallDateTime, .datetime, .datetimen, .datetime2, .date, .time, .datetimeOffset:
             guard let date else { throw TDSError.unsupportedType(metadata.dataType) }
             return .date(date)
+        case .guid:
+            guard value.readableBytes == 16,
+                  let bytes = value.getBytes(at: value.readerIndex, length: 16) else {
+                throw TDSError.unsupportedType(metadata.dataType)
+            }
+            let uuid = UUID(uuid: (
+                bytes[3], bytes[2], bytes[1], bytes[0],
+                bytes[5], bytes[4],
+                bytes[7], bytes[6],
+                bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+            ))
+            return .uuid(uuid)
         case .null:
             return .null
+        case .xml:
+            var buffer = value
+            guard let string = buffer.readUTF16String(length: buffer.readableBytes) else {
+                throw TDSError.unsupportedType(metadata.dataType)
+            }
+            return .string(string)
         default:
             throw TDSError.unsupportedType(metadata.dataType)
-            
-        //TODO: Implement remaining types
-        /*case .guid:
-            <#code#>
-        case .intn:
-            <#code#>
-        case .decimalLegacy:
-            <#code#>
-        case .numericLegacy:
-            <#code#>
-        case .floatn:
-            <#code#>
-        case .moneyn:
-            <#code#>
-        case .binaryLegacy:
-            <#code#>
-        case .varbinaryLegacy:
-            <#code#>
-        case .varbinary:
-            <#code#>
-        case .binary:
-            <#code#>
-        case .xml:
-            <#code#>
-        case .clrUdt:
-            <#code#>
-        case .image:
-            <#code#>
-        case .sqlVariant:
-            <#code#>*/
         }
     }
 }
