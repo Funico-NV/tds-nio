@@ -7,7 +7,6 @@ extension TDSConnection {
     
     public func query(_ sqlText: String) -> AsyncThrowingStream<SQLRow, Error> {
         AsyncThrowingStream { continuation in
-            let finished = ManagedAtomic(false)
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
                     var sqlRow: SQLRow = [:]
                     for col in row.columnMetadata.colData {
@@ -35,13 +34,11 @@ extension TDSConnection {
                 }
             
             @Sendable func finishOnce(_ error: Error? = nil) {
-                if finished.compareExchange(expected: false, desired: true, ordering: .relaxed).exchanged {
                     if let error = error {
                         continuation.finish(throwing: error)
                     } else {
                         continuation.finish()
                     }
-                }
             }
         }
     }
