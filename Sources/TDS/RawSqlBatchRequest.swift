@@ -71,7 +71,7 @@ final class RawSqlBatchRequest: TDSRequest, Sendable {
 
     func handle(packet: TDSPacket, allocator: ByteBufferAllocator) throws -> TDSPacketResponse {
         // Add packet to token parser stream
-        let parsedTokens = try tokenParser.writeAndParseTokens(packet.messageBuffer)
+        let parsedTokens = try tokenParser.writeAndParseTokens(packet.messageBuffer, isFinalPacket: packet.header.status == .eom)
         try handleParsedTokens(parsedTokens)
         if packet.header.status == .eom {
             return .done

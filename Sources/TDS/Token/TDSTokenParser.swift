@@ -8,13 +8,17 @@ public final class TDSTokenParser {
         self.buffer = ByteBufferAllocator().buffer(capacity: 0)
     }
     
-    func writeAndParseTokens(_ inputBuffer: ByteBuffer) throws -> [TDSToken] {
+    func writeAndParseTokens(_ inputBuffer: ByteBuffer, isFinalPacket: Bool = false) throws -> [TDSToken] {
         var packetMessageBuffer = inputBuffer
         buffer.writeBuffer(&packetMessageBuffer)
-        return try parseTokens()
+        let (tokens, needMoreData) = try parseTokens()
+        if isFinalPacket && needMoreData {
+            throw TDSError.protocolError("Unexpected end of message while parsing tokens.")
+        }
+        return tokens
     }
     
-    func parseTokens() throws -> [TDSToken] {
+    func parseTokens() throws -> ([TDSToken], needMoreData: Bool) {
         var bufferCopy = buffer
         var parsedTokens: [TDSToken] = []
         while buffer.readableBytes > 0 {
@@ -59,7 +63,7 @@ public final class TDSTokenParser {
             } catch {
                 buffer = bufferCopy
                 if case TDSError.needMoreData = error {
-                    return parsedTokens
+                    return (parsedTokens, true)
                 }
                 throw error
             }
@@ -67,7 +71,7 @@ public final class TDSTokenParser {
             bufferCopy = buffer
         }
         
-        return parsedTokens
+        return (parsedTokens, false)
     }
 }
 
