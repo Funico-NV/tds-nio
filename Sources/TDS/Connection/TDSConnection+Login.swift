@@ -28,7 +28,7 @@ class LoginRequest: TDSRequest {
 
     func handle(packet: TDSPacket, allocator: ByteBufferAllocator) throws -> TDSPacketResponse {
         // Add packet to token parser stream
-        let tokens = try tokenParser.writeAndParseTokens(packet.messageBuffer)
+        let tokens = tokenParser.writeAndParseTokens(packet.messageBuffer)
         
         guard packet.header.status == .eom else {
             return .continue

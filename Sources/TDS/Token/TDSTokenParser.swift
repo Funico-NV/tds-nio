@@ -8,13 +8,13 @@ public final class TDSTokenParser {
         self.buffer = ByteBufferAllocator().buffer(capacity: 0)
     }
     
-    func writeAndParseTokens(_ inputBuffer: ByteBuffer) throws -> [TDSToken] {
+    func writeAndParseTokens(_ inputBuffer: ByteBuffer) -> [TDSToken] {
         var packetMessageBuffer = inputBuffer
         buffer.writeBuffer(&packetMessageBuffer)
-        return try parseTokens()
+        return parseTokens()
     }
     
-    func parseTokens() throws -> [TDSToken] {
+    func parseTokens() -> [TDSToken] {
         var bufferCopy = buffer
         var parsedTokens: [TDSToken] = []
         while buffer.readableBytes > 0 {
