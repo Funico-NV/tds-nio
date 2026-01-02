@@ -91,7 +91,7 @@ final class RawSqlBatchRequest: TDSRequest, Sendable {
         // TODO: The following is an incomplete implementation of extracting data from rowTokens
         for token in tokens {
             switch token.type {
-            case .row:
+            case .row, .nbcRow:
                 guard let rowToken = token as? TDSTokens.RowToken else {
                     throw TDSError.protocolError("Error while reading row results.")
                 }
@@ -109,4 +109,3 @@ final class RawSqlBatchRequest: TDSRequest, Sendable {
         }
     }
 }
-

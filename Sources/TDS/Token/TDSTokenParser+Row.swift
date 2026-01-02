@@ -1,5 +1,9 @@
 extension TDSTokenParser {
-    public static func parseRowToken(from buffer: inout ByteBuffer, with colMetadata: TDSTokens.ColMetadataToken) throws -> TDSTokens.RowToken {
+    public static func parseRowToken(
+        from buffer: inout ByteBuffer,
+        with colMetadata: TDSTokens.ColMetadataToken,
+        nullBitmap: [UInt8]? = nil
+    ) throws -> TDSTokens.RowToken {
         let allocator = ByteBufferAllocator()
 
         enum ColumnReadKind {
@@ -119,11 +123,35 @@ extension TDSTokenParser {
             }
         }
 
+        func isNull(_ index: Int) -> Bool {
+            guard let nullBitmap else { return false }
+            let byteIndex = index / 8
+            let bitIndex = index % 8
+            return (nullBitmap[byteIndex] & (1 << bitIndex)) != 0
+        }
+
         var colData: [TDSTokens.RowToken.ColumnData] = []
-        for column in colMetadata.colData {
+        for (index, column) in colMetadata.colData.enumerated() {
+            if isNull(index) {
+                colData.append(TDSTokens.RowToken.ColumnData(data: allocator.buffer(capacity: 0)))
+                continue
+            }
             colData.append(try parseColumnData(&buffer, column: column))
         }
 
-        return TDSTokens.RowToken(colData: colData)
+        var token = TDSTokens.RowToken(colData: colData)
+        token.type = nullBitmap == nil ? .row : .nbcRow
+        return token
+    }
+
+    public static func parseNBCRowToken(
+        from buffer: inout ByteBuffer,
+        with colMetadata: TDSTokens.ColMetadataToken
+    ) throws -> TDSTokens.RowToken {
+        let bitmapLength = Int((Int(colMetadata.count) + 7) / 8)
+        guard let nullBitmap = buffer.readBytes(length: bitmapLength) else {
+            throw TDSError.needMoreData
+        }
+        return try parseRowToken(from: &buffer, with: colMetadata, nullBitmap: nullBitmap)
     }
 }
