@@ -40,11 +40,6 @@ public final class TDSTokenParser {
                     let colMetadataToken = try TDSTokenParser.parseColMetadataToken(from: &buffer)
                     colMetadata = colMetadataToken
                     token = colMetadataToken
-                case .nbcRow:
-                    guard let colMetadata = colMetadata else {
-                        throw TDSError.protocolError("Error while parsing row data: no COLMETADATA recieved")
-                    }
-                    token = try TDSTokenParser.parseNbcRowToken(from: &buffer, with: colMetadata)
                 case .row:
                     guard let colMetadata = colMetadata else {
                         throw TDSError.protocolError("Error while parsing row data: no COLMETADATA recieved")
