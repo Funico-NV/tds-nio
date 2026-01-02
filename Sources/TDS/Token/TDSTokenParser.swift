@@ -58,14 +58,7 @@ public final class TDSTokenParser {
                 
             } catch {
                 buffer = bufferCopy
-                // Only wait for more bytes when we genuinely ran out of data.
-                // Any other parsing error means the stream cannot make forward progress,
-                // so surface it to the caller instead of silently stalling.
-                if case TDSError.needMoreData = error {
-                    return parsedTokens
-                } else {
-                    throw error
-                }
+                return parsedTokens
             }
             
             bufferCopy = buffer
