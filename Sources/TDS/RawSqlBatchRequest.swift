@@ -15,7 +15,7 @@ extension TDSConnection {
                                 let sqlValue = try data.decode()
                                 sqlRow[col.colName] = sqlValue
                             } catch {
-                                finishOnce(error)
+                                continuation.finish(throwing: error)
                             }
                         } else {
                             sqlRow[col.colName] = .null
@@ -27,36 +27,28 @@ extension TDSConnection {
                 .whenComplete { result in
                     switch result {
                     case .success:
-                        finishOnce()
+                        continuation.finish()
                     case .failure(let error):
-                        finishOnce(error)
+                        continuation.finish(throwing: error)
                     }
                 }
-            
-            @Sendable func finishOnce(_ error: Error? = nil) {
-                    if let error = error {
-                        continuation.finish(throwing: error)
-                    } else {
-                        continuation.finish()
-                    }
-            }
         }
     }
     
-    public func tdsQuery(_ sqlText: String) -> AsyncStream<TDSRow> {
-        AsyncStream { continuation in
-            let finished = ManagedAtomic(false)
+    public func tdsQuery(_ sqlText: String) -> AsyncThrowingStream<TDSRow, Error> {
+        AsyncThrowingStream { continuation in
             let request = RawSqlBatchRequest(sqlBatch: TDSMessages.RawSqlBatchMessage(sqlText: sqlText), logger: logger) { row in
                 continuation.yield(row)
             }
             self.send(request, logger: logger)
-                .whenComplete { _ in finishOnce() }
-            
-            func finishOnce() {
-                if finished.compareExchange(expected: false, desired: true, ordering: .relaxed).exchanged {
-                    continuation.finish()
+                .whenComplete { result in
+                    switch result {
+                    case .success:
+                        continuation.finish()
+                    case .failure(let error):
+                        continuation.finish(throwing: error)
+                    }
                 }
-            }
         }
     }
 }
