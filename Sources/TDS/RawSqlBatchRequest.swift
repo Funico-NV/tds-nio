@@ -57,6 +57,7 @@ final class RawSqlBatchRequest: TDSRequest, Sendable {
     let sqlBatch: TDSMessages.RawSqlBatchMessage
     let onRow: @Sendable (TDSRow) throws -> ()
     let rowLookupTable: ManagedAtomic<TDSRow.LookupTable?>
+    private let rowCounter: ManagedAtomic<Int>
     
     private let logger: Logger
     private let tokenParser: TDSTokenParser
@@ -67,6 +68,7 @@ final class RawSqlBatchRequest: TDSRequest, Sendable {
         self.logger = logger
         self.tokenParser = TDSTokenParser(logger: logger)
         self.rowLookupTable = ManagedAtomic(nil)
+        self.rowCounter = ManagedAtomic(0)
     }
 
     func handle(packet: TDSPacket, allocator: ByteBufferAllocator) throws -> TDSPacketResponse {
@@ -97,12 +99,18 @@ final class RawSqlBatchRequest: TDSRequest, Sendable {
                 }
                 guard let rowLookupTable = self.rowLookupTable.load(ordering: .relaxed) else { fatalError() }
                 let row = TDSRow(dataRow: rowToken, lookupTable: rowLookupTable)
+                let rowIndex = rowCounter.wrappingIncrementThenLoad(ordering: .relaxed)
+                print("TDS row parsed index=\(rowIndex) columns=\(rowToken.colData.count)")
                 try onRow(row)
             case .colMetadata:
                 guard let colMetadataToken = token as? TDSTokens.ColMetadataToken else {
                     throw TDSError.protocolError("Error reading column metadata token.")
                 }
                 self.rowLookupTable.store(TDSRow.LookupTable(colMetadata: colMetadataToken), ordering: .relaxed)
+                print("TDS colMetadata columns=\(colMetadataToken.count)")
+                for column in colMetadataToken.colData {
+                    print("TDS col name=\(column.colName) type=\(column.dataType) length=\(column.length)")
+                }
             default:
                 break
             }
