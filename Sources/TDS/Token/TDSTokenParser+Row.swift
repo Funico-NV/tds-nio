@@ -18,8 +18,14 @@ extension TDSTokenParser {
             return slice
         }
 
-        func readVariableLength(_ buf: inout ByteBuffer, nullMarker: UInt16) throws -> ByteBuffer? {
+        func readVariableLength(
+            _ buf: inout ByteBuffer,
+            nullMarker: UInt16,
+            columnName: String,
+            columnIndex: Int
+        ) throws -> ByteBuffer? {
             guard let len: UInt16 = buf.readInteger(endianness: .little, as: UInt16.self) else { throw TDSError.needMoreData }
+            print("TDS varlen prefix index=\(columnIndex) name=\(columnName) len=\(len) readableBytes=\(buf.readableBytes)")
             if len == nullMarker { return nil }
             return try readSlice(&buf, length: Int(len))
         }
@@ -95,17 +101,23 @@ extension TDSTokenParser {
 
         func parseColumnData(
             _ buf: inout ByteBuffer,
-            column: TDSTokens.ColMetadataToken.ColumnData
+            column: TDSTokens.ColMetadataToken.ColumnData,
+            columnIndex: Int
         ) throws -> TDSTokens.RowToken.ColumnData {
 
             let kind = readKind(for: column)
-            print("TDS col parse name=\(column.colName) type=\(column.dataType) length=\(column.length) kind=\(kind)")
+            print("TDS col parse name=\(column.colName) type=\(column.dataType) length=\(column.length) kind=\(kind) readableBytes=\(buf.readableBytes)")
 
             switch kind {
             case .fixed(let size):
                 return TDSTokens.RowToken.ColumnData(data: try readSlice(&buf, length: size))
             case .variable(let nullMarker):
-                if let payload = try readVariableLength(&buf, nullMarker: nullMarker) {
+                if let payload = try readVariableLength(
+                    &buf,
+                    nullMarker: nullMarker,
+                    columnName: column.colName,
+                    columnIndex: columnIndex
+                ) {
                     return TDSTokens.RowToken.ColumnData(data: payload)
                 }
                 return TDSTokens.RowToken.ColumnData(data: allocator.buffer(capacity: 0))
@@ -118,6 +130,7 @@ extension TDSTokenParser {
                 guard let length: UInt8 = buf.readInteger() else {
                     throw TDSError.needMoreData
                 }
+                print("TDS numeric prefix index=\(columnIndex) name=\(column.colName) len=\(length) readableBytes=\(buf.readableBytes)")
 
                 if length == 0 {
                     return TDSTokens.RowToken.ColumnData(data: allocator.buffer(capacity: 0))
@@ -141,7 +154,7 @@ extension TDSTokenParser {
                 colData.append(TDSTokens.RowToken.ColumnData(data: allocator.buffer(capacity: 0)))
                 continue
             }
-            colData.append(try parseColumnData(&buffer, column: column))
+            colData.append(try parseColumnData(&buffer, column: column, columnIndex: index))
         }
 
         var token = TDSTokens.RowToken(colData: colData)
