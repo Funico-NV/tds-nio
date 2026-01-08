@@ -15,7 +15,7 @@ public final class TDSPacketDecoder: ByteToMessageDecoder {
     /// See `ByteToMessageDecoder`.
     public func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState {
         if buffer.readableBytes >= TDSPacket.headerLength {
-            guard let length: UInt16 = buffer.getInteger(at: 2) else {
+            guard let length: UInt16 = buffer.getInteger(at: buffer.readerIndex + 2) else {
                 throw TDSError.protocolError("Invalid packet header: missing length.")
             }
             if length < TDSPacket.headerLength {

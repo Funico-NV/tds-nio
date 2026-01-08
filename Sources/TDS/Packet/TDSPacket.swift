@@ -20,8 +20,8 @@ public struct TDSPacket {
     init?(from buffer: inout ByteBuffer) {
         guard
             buffer.readableBytes >= Header.length,
-            let typeByte: UInt8 = buffer.getInteger(at: 0),
-            let length: UInt16 = buffer.getInteger(at: 2), // After type and status
+            let typeByte: UInt8 = buffer.getInteger(at: buffer.readerIndex),
+            let length: UInt16 = buffer.getInteger(at: buffer.readerIndex + 2), // After type and status
             length <= buffer.readableBytes,
             let slice = buffer.readSlice(length: Int(length))
         else {
