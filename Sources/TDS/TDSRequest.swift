@@ -214,6 +214,14 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
     
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
         print(error.localizedDescription)
+        if !self.queue.isEmpty {
+            let pending = self.queue
+            self.queue.removeAll()
+            for request in pending {
+                request.promise.fail(error)
+            }
+        }
+        context.close(promise: nil)
         context.fireErrorCaught(error)
     }
     

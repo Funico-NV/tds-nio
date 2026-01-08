@@ -95,7 +95,9 @@ final class RawSqlBatchRequest: TDSRequest, Sendable {
                 guard let rowToken = token as? TDSTokens.RowToken else {
                     throw TDSError.protocolError("Error while reading row results.")
                 }
-                guard let rowLookupTable = self.rowLookupTable.load(ordering: .relaxed) else { fatalError() }
+                guard let rowLookupTable = self.rowLookupTable.load(ordering: .relaxed) else {
+                    throw TDSError.protocolError("Row data received before column metadata.")
+                }
                 let row = TDSRow(dataRow: rowToken, lookupTable: rowLookupTable)
                 try onRow(row)
             case .colMetadata:

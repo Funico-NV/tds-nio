@@ -23,6 +23,7 @@ public final class TDSTokenParser {
         var parsedTokens: [TDSToken] = []
         while buffer.readableBytes > 0 {
             do {
+                let readableBytesBefore = buffer.readableBytes
                 var token: TDSToken
                 guard
                     let tokenByte = buffer.readByte(),
@@ -59,6 +60,9 @@ public final class TDSTokenParser {
                 }
                 
                 parsedTokens.append(token)
+                if buffer.readableBytes >= readableBytesBefore {
+                    throw TDSError.protocolError("Parser made no progress while reading token data.")
+                }
                 
             } catch {
                 buffer = bufferCopy
