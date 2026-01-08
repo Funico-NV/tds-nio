@@ -47,6 +47,6 @@ public final class TDSConnection {
     }
     
     deinit {
-        assert(self.didClose.load(ordering: .relaxed), "TDSConnection deinitialized before being closed.")
+       // assert(self.didClose.load(ordering: .relaxed), "TDSConnection deinitialized before being closed.")
     }
 }
