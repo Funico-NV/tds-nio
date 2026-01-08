@@ -33,6 +33,7 @@ extension TDSTokenParser {
             guard let totalLength: UInt64 = buf.readInteger(endianness: .little, as: UInt64.self) else {
                 throw TDSError.needMoreData
             }
+            print("TDS PLP totalLength=\(totalLength)")
 
             // NULL PLP value
             if totalLength == UInt64.max {
@@ -50,6 +51,7 @@ extension TDSTokenParser {
                     break
                 }
 
+                print("TDS PLP chunkLength=\(chunkLength)")
                 let slice = try readSlice(&buf, length: Int(chunkLength))
                 var mutable = slice
                 result.writeBuffer(&mutable)
@@ -96,7 +98,10 @@ extension TDSTokenParser {
             column: TDSTokens.ColMetadataToken.ColumnData
         ) throws -> TDSTokens.RowToken.ColumnData {
 
-            switch readKind(for: column) {
+            let kind = readKind(for: column)
+            print("TDS col parse name=\(column.colName) type=\(column.dataType) length=\(column.length) kind=\(kind)")
+
+            switch kind {
             case .fixed(let size):
                 return TDSTokens.RowToken.ColumnData(data: try readSlice(&buf, length: size))
             case .variable(let nullMarker):

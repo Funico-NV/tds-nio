@@ -21,6 +21,7 @@ public final class TDSTokenParser {
     func parseTokens() throws -> ([TDSToken], needMoreData: Bool) {
         var bufferCopy = buffer
         var parsedTokens: [TDSToken] = []
+        var lastTokenType: TDSTokens.TokenType?
         while buffer.readableBytes > 0 {
             do {
                 var token: TDSToken
@@ -30,6 +31,7 @@ public final class TDSTokenParser {
                 else {
                     throw TDSError.protocolError("Parsed unknown token type.")
                 }
+                lastTokenType = tokenType
                 
                 switch tokenType {
                 case .error, .info:
@@ -63,6 +65,8 @@ public final class TDSTokenParser {
             } catch {
                 buffer = bufferCopy
                 if case TDSError.needMoreData = error {
+                    let tokenLabel = lastTokenType.map { "\($0)" } ?? "unknown"
+                    print("TDS needMoreData token=\(tokenLabel) readableBytes=\(buffer.readableBytes)")
                     return (parsedTokens, true)
                 }
                 throw error
