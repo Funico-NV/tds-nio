@@ -2,6 +2,7 @@ import NIO
 import NIOSSL
 import NIOTLS
 import Logging
+import Foundation
 
 extension TDSConnection: TDSClient {
     public func send(_ request: TDSRequest, logger: Logger) -> EventLoopFuture<Void> {
@@ -124,14 +125,25 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
         guard let tlsConfig = tlsConfiguration else {
             throw TDSError.protocolError("Encryption was requested but a TLS Configuration was not provided.")
         }
-        
-        let sslContext = try! NIOSSLContext(configuration: tlsConfig)
-        let sslHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: serverHostname)
+
+        // SNI (Server Name Indication) must be a DNS hostname. If the caller supplied an IP address
+        // (e.g. 10.10.10.32) NIOSSL will throw `cannotUseIPAddressInSNI`. In that case, disable SNI
+        // by passing `nil` as the serverHostname.
+        let sniHostname: String?
+        if let host = serverHostname, host.isIPAddress {
+            sniHostname = nil
+            logger.debug("TLS: disabling SNI because serverHostname is an IP address", metadata: ["serverHostname": "\(host)"])
+        } else {
+            sniHostname = serverHostname
+        }
+
+        let sslContext = try NIOSSLContext(configuration: tlsConfig)
+        let sslHandler = try NIOSSLClientHandler(context: sslContext, serverHostname: sniHostname)
         self.sslClientHandler = sslHandler
-        
+
         let coordinator = PipelineOrganizationHandler(logger: logger, firstDecoder, firstEncoder, sslHandler)
         self.pipelineCoordinator = coordinator
-        
+
         context.channel.pipeline.addHandler(coordinator, position: .before(self)).whenComplete { _ in
             context.channel.pipeline.addHandler(sslHandler, position: .after(coordinator)).whenComplete { _ in
                 self.state = .sslHandshakeStarted
@@ -263,5 +275,17 @@ final class TDSRequestHandler: ChannelDuplexHandler, @unchecked Sendable {
     
     func triggerUserOutboundEvent(context: ChannelHandlerContext, event: Any, promise: EventLoopPromise<Void>?) {
         
+    }
+}
+
+
+private extension String {
+    /// Returns true when the string is a valid IPv4 or IPv6 address.
+    var isIPAddress: Bool {
+        var ipv4 = in_addr()
+        var ipv6 = in6_addr()
+        return self.withCString { cstr in
+            inet_pton(AF_INET, cstr, &ipv4) == 1 || inet_pton(AF_INET6, cstr, &ipv6) == 1
+        }
     }
 }
