@@ -26,9 +26,9 @@ public final class TDSPacketDecoder: ByteToMessageDecoder {
             }
         }
 
-        let readableBytesBefore = buffer.readableBytes
+        let readerIndexBefore = buffer.readerIndex
         if let packet = TDSPacket(from: &buffer) {
-            if buffer.readableBytes >= readableBytesBefore {
+            if buffer.readerIndex == readerIndexBefore {
                 throw TDSError.protocolError("Packet decoder made no progress while reading data.")
             }
             context.fireChannelRead(wrapInboundOut(packet))
