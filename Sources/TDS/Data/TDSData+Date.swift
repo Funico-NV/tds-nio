@@ -50,9 +50,9 @@ extension TDSData {
             return Date(timeInterval: interval, since: _jan1900)
         case .datetimen:
             // If the first byte indicates a null marker, skip it
-            if let first = value.getInteger(at: value.readerIndex, as: UInt8.self), first == 0x00 {
-                return nil
-            }
+//            if let first = value.getInteger(at: value.readerIndex, as: UInt8.self), first == 0x00 {
+//                return nil
+//            }
             
             guard
                 value.readableBytes == 8,
