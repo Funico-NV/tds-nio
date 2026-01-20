@@ -49,11 +49,6 @@ extension TDSData {
             
             return Date(timeInterval: interval, since: _jan1900)
         case .datetimen:
-            // If the first byte indicates a null marker, skip it
-//            if let first = value.getInteger(at: value.readerIndex, as: UInt8.self), first == 0x00 {
-//                return nil
-//            }
-            
             guard
                 value.readableBytes == 8,
                 // One 4-byte signed integer that represents the number of days since January 1, 1900. Negative numbers are allowed to represent dates since January 1, 1753.
