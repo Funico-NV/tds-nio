@@ -4,16 +4,16 @@ import PackageDescription
 let package = Package(
     name: "swift-tds",
     platforms: [
-       .macOS(.v10_15)
+       .macOS(.v13)
     ],
     products: [
         .library(name: "TDS", targets: ["TDS"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", .upToNextMinor(from: "2.92.0")),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMinor(from: "2.36.0")),
-        .package(url: "https://github.com/apple/swift-metrics.git", .upToNextMinor(from: "2.7.0")),
-        .package(url: "https://github.com/apple/swift-log.git", .upToNextMajor(from: "1.8.0")),
+        .package(url: "https://github.com/apple/swift-nio.git", from: Version(2,0,0)),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: Version(2,0,0)),
+        .package(url: "https://github.com/apple/swift-metrics.git", from: Version(2,0,0)),
+        .package(url: "https://github.com/apple/swift-log.git", from: Version(1,0,0)),
     ],
     targets: [
         .target(name: "TDS", dependencies: [
