@@ -12,19 +12,23 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: Version(2,0,0)),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: Version(2,0,0)),
-        .package(url: "https://github.com/apple/swift-metrics.git", from: Version(2,0,0)),
         .package(url: "https://github.com/apple/swift-log.git", from: Version(1,0,0)),
     ],
     targets: [
-        .target(name: "TDS", dependencies: [
-            .product(name: "Logging", package: "swift-log"),
-            .product(name: "Metrics", package: "swift-metrics"),
-            .product(name: "NIO", package: "swift-nio"),
-            .product(name: "NIOSSL", package: "swift-nio-ssl"),
-        ]),
-        .testTarget(name: "TDSTests", dependencies: [
-            .target(name: "TDS"),
-            .product(name: "NIOTestUtils", package: "swift-nio"),
-        ]),
+        .target(
+            name: "TDS",
+            dependencies: [
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+            ]
+        ),
+        .testTarget(
+            name: "TDSTests",
+            dependencies: [
+                .target(name: "TDS"),
+                .product(name: "NIOTestUtils", package: "swift-nio"),
+            ]
+        ),
     ]
 )
