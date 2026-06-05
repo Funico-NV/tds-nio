@@ -28,10 +28,12 @@ extension TDSData {
                 return nil
             }
             
-            var secondsSinceJan1900 = Int64(daysSinceJan1900) * _secondsInDay
-            secondsSinceJan1900 += Int64(minutesElapsed) * 60
-            
-            return Date(timeInterval: Double(secondsSinceJan1900), since: _jan1)
+            let secondsSinceMidnight = Double(minutesElapsed) * 60
+            return _tdsDateSinceJan1900(
+                days: Int(daysSinceJan1900),
+                secondsSinceMidnight: secondsSinceMidnight,
+                calendar: _tdsCalendar
+            )
         case .datetime:
             guard
                 value.readableBytes == 8,
@@ -43,11 +45,12 @@ extension TDSData {
                 return nil
             }
             
-            let secondsSinceJan1900 = Int64(daysSinceJan1900) * _secondsInDay
             let secondsSinceMidnight = Double(oneThreeHundrethsOfASecondElapsed) / 300
-            let interval = Double(secondsSinceJan1900) + secondsSinceMidnight
-            
-            return Date(timeInterval: interval, since: _jan1900)
+            return _tdsDateSinceJan1900(
+                days: Int(daysSinceJan1900),
+                secondsSinceMidnight: secondsSinceMidnight,
+                calendar: _tdsCalendar
+            )
         case .datetimen:
             guard
                 value.readableBytes == 8,
@@ -59,22 +62,23 @@ extension TDSData {
                 return nil
             }
             
-            let secondsSinceJan1900 = Int64(daysSinceJan1900) * _secondsInDay
             let secondsSinceMidnight = Double(oneThreeHundrethsOfASecondElapsed) / 300
-            let interval = Double(secondsSinceJan1900) + secondsSinceMidnight
-            
-            return Date(timeInterval: interval, since: _jan1900)
+            return _tdsDateSinceJan1900(
+                days: Int(daysSinceJan1900),
+                secondsSinceMidnight: secondsSinceMidnight,
+                calendar: _tdsCalendar
+            )
         case .date:
             return value.readDate()
         case .time:
             // time alone cannot be accurately represented with Swift's Date type
             return nil
         case .datetime2:
-            return value.readDatetime2(bytes: value.readableBytes - 3, scale: metadata.scale)
+            return value.readDatetime2(bytes: value.readableBytes - 3, scale: metadata.scale, calendar: _tdsCalendar)
         case .datetimeOffset:
             // datetimeoffset(n) is represented as a concatenation of datetime2(n) followed by one 2-byte signed integer that represents the time zone offset as the number of minutes from UTC. The time zone offset MUST be between -840 and 840.
             guard
-                let localDateTime = value.readDatetime2(bytes: value.readableBytes - 5, scale: metadata.scale),
+                let localDateTime = value.readDatetime2(bytes: value.readableBytes - 5, scale: metadata.scale, calendar: _tdsUTCCalendar),
                 let timezoneOffset = value.readInteger(endianness: .little, as: Int16.self),
                 timezoneOffset >= -840 && timezoneOffset <= 840
             else {
@@ -143,13 +147,11 @@ extension ByteBuffer {
             return nil
         }
         
-        let secondsSinceJan1 = Int64(daysSinceJan1) * _secondsInDay
-        
-        return Date(timeInterval: Double(secondsSinceJan1), since: _jan1)
+        return _tdsDateSinceJan1(days: Int(daysSinceJan1), calendar: _tdsCalendar)
     }
     
     /// datetime2(n) is represented as a concatenation of time(n) followed by date as specified above.
-    fileprivate mutating func readDatetime2(bytes length: Int, scale: Int?) -> Date? {
+    fileprivate mutating func readDatetime2(bytes length: Int, scale: Int?, calendar: Calendar) -> Date? {
         
         guard
             let nanoseconds = self.readTimeComponents(bytes: length, scale: scale),
@@ -158,7 +160,7 @@ extension ByteBuffer {
             return nil
         }
         
-        return _tdsCalendar.date(byAdding: nanoseconds, to: date)
+        return calendar.date(byAdding: nanoseconds, to: date)
     }
 }
 
@@ -185,16 +187,33 @@ private let _secondsInDay: Int64 = 24 * 60 * 60
 
 private let _tdsCalendar: Calendar = {
     var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone.current
+    calendar.timeZone = .current
     return calendar
 }()
 
-private let _jan1 = _tdsReferenceDate(year: 1)
-private let _jan1900 = _tdsReferenceDate(year: 1900)
+private let _tdsUTCCalendar: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+    return calendar
+}()
 
-private func _tdsReferenceDate(year: Int) -> Date {
-    guard let date = _tdsCalendar.date(from: DateComponents(year: year, month: 1, day: 1)) else {
+private let _jan1 = _tdsReferenceDate(year: 1, calendar: _tdsCalendar)
+private let _jan1900 = _tdsReferenceDate(year: 1900, calendar: _tdsCalendar)
+
+private func _tdsReferenceDate(year: Int, calendar: Calendar) -> Date {
+    guard let date = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) else {
         preconditionFailure("Unable to create TDS reference date for year \(year).")
     }
     return date
+}
+
+private func _tdsDateSinceJan1(days: Int, calendar: Calendar) -> Date? {
+    calendar.date(byAdding: .day, value: days, to: _tdsReferenceDate(year: 1, calendar: calendar))
+}
+
+private func _tdsDateSinceJan1900(days: Int, secondsSinceMidnight: Double, calendar: Calendar) -> Date? {
+    guard let date = calendar.date(byAdding: .day, value: days, to: _tdsReferenceDate(year: 1900, calendar: calendar)) else {
+        return nil
+    }
+    return date.addingTimeInterval(secondsSinceMidnight)
 }
