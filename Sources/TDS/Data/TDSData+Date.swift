@@ -16,20 +16,6 @@ extension TDSData {
             return nil
         }
         
-#if DEBUG
-        let debugBytes = value.getBytes(at: value.readerIndex, length: value.readableBytes) ?? []
-        let debugHexBytes = debugBytes.map { String(format: "%02X", $0) }.joined(separator: " ")
-        print("""
-        TDS date decode START
-          type: \(self.metadata.dataType)
-          scale: \(String(describing: self.metadata.scale))
-          readableBytes: \(value.readableBytes)
-          readerIndex: \(value.readerIndex)
-          rawBytes: \(debugHexBytes)
-          currentTimeZone: \(TimeZone.current.identifier) secondsFromGMT: \(TimeZone.current.secondsFromGMT())
-        """)
-#endif
-        
         switch self.metadata.dataType {
         case .smallDateTime:
             guard
@@ -45,19 +31,7 @@ extension TDSData {
             var secondsSinceJan1900 = Int64(daysSinceJan1900) * _secondsInDay
             secondsSinceJan1900 += Int64(minutesElapsed) * 60
             
-            let result = Date(timeInterval: Double(secondsSinceJan1900), since: _jan1)
-#if DEBUG
-            print("""
-            TDS smallDateTime decode
-              daysSinceJan1900: \(daysSinceJan1900)
-              minutesElapsed: \(minutesElapsed)
-              secondsSinceJan1900: \(secondsSinceJan1900)
-              result: \(result)
-              resultISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: result))
-              resultLocal: \(_tdsDebugLocalFormatter.string(from: result))
-            """)
-#endif
-            return result
+            return Date(timeInterval: Double(secondsSinceJan1900), since: _jan1)
         case .datetime:
             guard
                 value.readableBytes == 8,
@@ -73,21 +47,7 @@ extension TDSData {
             let secondsSinceMidnight = Double(oneThreeHundrethsOfASecondElapsed) / 300
             let interval = Double(secondsSinceJan1900) + secondsSinceMidnight
             
-            let result = Date(timeInterval: interval, since: _jan1900)
-#if DEBUG
-            print("""
-            TDS datetime decode
-              daysSinceJan1900: \(daysSinceJan1900)
-              oneThreeHundrethsOfASecondElapsed: \(oneThreeHundrethsOfASecondElapsed)
-              secondsSinceJan1900: \(secondsSinceJan1900)
-              secondsSinceMidnight: \(secondsSinceMidnight)
-              interval: \(interval)
-              result: \(result)
-              resultISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: result))
-              resultLocal: \(_tdsDebugLocalFormatter.string(from: result))
-            """)
-#endif
-            return result
+            return Date(timeInterval: interval, since: _jan1900)
         case .datetimen:
             guard
                 value.readableBytes == 8,
@@ -103,58 +63,14 @@ extension TDSData {
             let secondsSinceMidnight = Double(oneThreeHundrethsOfASecondElapsed) / 300
             let interval = Double(secondsSinceJan1900) + secondsSinceMidnight
             
-            let result = Date(timeInterval: interval, since: _jan1900)
-#if DEBUG
-            print("""
-            TDS datetimen decode
-              daysSinceJan1900: \(daysSinceJan1900)
-              oneThreeHundrethsOfASecondElapsed: \(oneThreeHundrethsOfASecondElapsed)
-              secondsSinceJan1900: \(secondsSinceJan1900)
-              secondsSinceMidnight: \(secondsSinceMidnight)
-              interval: \(interval)
-              result: \(result)
-              resultISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: result))
-              resultLocal: \(_tdsDebugLocalFormatter.string(from: result))
-            """)
-#endif
-            return result
+            return Date(timeInterval: interval, since: _jan1900)
         case .date:
-            let result = value.readDate()
-#if DEBUG
-            if let result {
-                print("""
-                TDS date decode
-                  result: \(result)
-                  resultISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: result))
-                  resultLocal: \(_tdsDebugLocalFormatter.string(from: result))
-                """)
-            } else {
-                print("TDS date decode -> nil")
-            }
-#endif
-            return result
+            return value.readDate()
         case .time:
             // time alone cannot be accurately represented with Swift's Date type
             return nil
         case .datetime2:
-            let timeByteLength = value.readableBytes - 3
-#if DEBUG
-            print("TDS datetime2 branch -> timeByteLength: \(timeByteLength)")
-#endif
-            let result = value.readDatetime2(bytes: timeByteLength, scale: metadata.scale)
-#if DEBUG
-            if let result {
-                print("""
-                TDS datetime2 result
-                  result: \(result)
-                  resultISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: result))
-                  resultLocal: \(_tdsDebugLocalFormatter.string(from: result))
-                """)
-            } else {
-                print("TDS datetime2 result -> nil")
-            }
-#endif
-            return result
+            return value.readDatetime2(bytes: value.readableBytes - 3, scale: metadata.scale)
         case .datetimeOffset:
             // datetimeoffset(n) is represented as a concatenation of datetime2(n) followed by one 2-byte signed integer that represents the time zone offset as the number of minutes from UTC. The time zone offset MUST be between -840 and 840.
             guard
@@ -165,31 +81,11 @@ extension TDSData {
                 return nil
             }
             
-#if DEBUG
-            print("""
-            TDS datetimeoffset intermediate
-              localDateTime: \(localDateTime)
-              localDateTimeISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: localDateTime))
-              localDateTimeLocal: \(_tdsDebugLocalFormatter.string(from: localDateTime))
-              timezoneOffsetMinutes: \(timezoneOffset)
-              timezoneOffsetSeconds: \(Int(timezoneOffset) * 60)
-            """)
-#endif
-            
             // `datetimeoffset` stores the local wall-clock date/time together with the
             // offset from UTC. `readDatetime2` reconstructs that wall-clock value on a
             // UTC calendar, so convert it to the absolute instant by subtracting the
             // stored offset.
-            let result = localDateTime.addingTimeInterval(TimeInterval(-Int(timezoneOffset) * 60))
-#if DEBUG
-            print("""
-            TDS datetimeoffset result
-              result: \(result)
-              resultISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: result))
-              resultLocal: \(_tdsDebugLocalFormatter.string(from: result))
-            """)
-#endif
-            return result
+            return localDateTime.addingTimeInterval(TimeInterval(-Int(timezoneOffset) * 60))
         default:
             return nil
         }
@@ -213,9 +109,9 @@ extension ByteBuffer {
         // The time zone offset as the number of minutes from UTC (2 bytes)
         let minutesFromUTC = Int16(secondsFromUTC / 60)
         
-#warning("TODO: Should only write 5 bytes")
+        #warning("TODO: Should only write 5 bytes")
         self.writeInteger(secondIncrements)
-#warning("TODO: Should only write 3 bytes")
+        #warning("TODO: Should only write 3 bytes")
         self.writeInteger(daysSinceJan1)
         self.writeInteger(minutesFromUTC)
     }
@@ -227,17 +123,9 @@ extension ByteBuffer {
     /// * 5 bytes if 5 <= n < = 7.
     ///
     fileprivate mutating func readTimeComponents(bytes length: Int, scale: Int?) -> DateComponents? {
-        let startReaderIndex = self.readerIndex
         guard var secondIncrements: Int = self.readByteLengthInteger(length: length), let scale = scale else {
-#if DEBUG
-            print("TDS time decode -> nil, length: \(length), scale: \(String(describing: scale)), startReaderIndex: \(startReaderIndex), endReaderIndex: \(self.readerIndex)")
-#endif
             return nil
         }
-        
-#if DEBUG
-        let rawSecondIncrements = secondIncrements
-#endif
         
         if scale < 7 {
             for _ in scale..<7 {
@@ -245,48 +133,19 @@ extension ByteBuffer {
             }
         }
         
-        let nanoseconds = secondIncrements * 100
-#if DEBUG
-        print("""
-        TDS time decode
-          length: \(length)
-          scale: \(scale)
-          startReaderIndex: \(startReaderIndex)
-          endReaderIndex: \(self.readerIndex)
-          rawSecondIncrements: \(rawSecondIncrements)
-          normalizedSecondIncrements: \(secondIncrements)
-          nanoseconds: \(nanoseconds)
-        """)
-#endif
-        return DateComponents(nanosecond: nanoseconds)
+        return DateComponents.init(nanosecond: secondIncrements * 100)
     }
     
     /// represented as one 3-byte unsigned integer that represents the number of days since January 1, year 1.
     fileprivate mutating func readDate() -> Date? {
         
-        let startReaderIndex = self.readerIndex
         guard let daysSinceJan1: UInt32 = self.readByteLengthInteger(length: 3) else {
-#if DEBUG
-            print("TDS date-only component decode -> nil, startReaderIndex: \(startReaderIndex), endReaderIndex: \(self.readerIndex)")
-#endif
             return nil
         }
         
         let secondsSinceJan1 = Int64(daysSinceJan1) * _secondsInDay
-        let result = Date(timeInterval: Double(secondsSinceJan1), since: _jan1)
-#if DEBUG
-        print("""
-        TDS date-only component decode
-          startReaderIndex: \(startReaderIndex)
-          endReaderIndex: \(self.readerIndex)
-          daysSinceJan1: \(daysSinceJan1)
-          secondsSinceJan1: \(secondsSinceJan1)
-          result: \(result)
-          resultISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: result))
-          resultLocal: \(_tdsDebugLocalFormatter.string(from: result))
-        """)
-#endif
-        return result
+        
+        return Date(timeInterval: Double(secondsSinceJan1), since: _jan1)
     }
     
     /// datetime2(n) is represented as a concatenation of time(n) followed by date as specified above.
@@ -299,26 +158,7 @@ extension ByteBuffer {
             return nil
         }
         
-        let decodedDate = _tdsCalendar.date(byAdding: nanoseconds, to: date)
-#if DEBUG
-        if let decodedDate {
-            print("""
-            TDS datetime2 decode
-              timeByteLength: \(length)
-              scale: \(String(describing: scale))
-              baseDate: \(date)
-              baseDateISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: date))
-              baseDateLocal: \(_tdsDebugLocalFormatter.string(from: date))
-              nanoseconds: \(String(describing: nanoseconds.nanosecond))
-              decodedDate: \(decodedDate)
-              decodedDateISO8601UTC: \(_tdsDebugISO8601Formatter.string(from: decodedDate))
-              decodedDateLocal: \(_tdsDebugLocalFormatter.string(from: decodedDate))
-            """)
-        } else {
-            print("TDS datetime2 decode -> nil, timeByteLength: \(length), scale: \(String(describing: scale)), baseDate: \(date), nanoseconds: \(String(describing: nanoseconds.nanosecond))")
-        }
-#endif
-        return decodedDate
+        return _tdsCalendar.date(byAdding: nanoseconds, to: date)
     }
 }
 
@@ -351,17 +191,3 @@ private let _tdsCalendar: Calendar = {
     return calendar
 }()
 
-private let _tdsDebugISO8601Formatter: ISO8601DateFormatter = {
-    let formatter = ISO8601DateFormatter()
-    formatter.timeZone = TimeZone(secondsFromGMT: 0)
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return formatter
-}()
-
-private let _tdsDebugLocalFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.timeZone = .current
-    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS ZZZZZ"
-    return formatter
-}()
