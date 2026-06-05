@@ -182,12 +182,19 @@ extension Date: TDSDataConvertible {
 // MARK: Private
 private let _microsecondsPerSecond: Int64 = 1_000_000
 private let _secondsInDay: Int64 = 24 * 60 * 60
-private let _jan1 = Date(timeIntervalSince1970: -62_135_742_702)
-private let _jan1900 = Date(timeIntervalSince1970: -2_208_963_600)
 
 private let _tdsCalendar: Calendar = {
     var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
     return calendar
 }()
 
+private let _jan1 = _tdsReferenceDate(year: 1)
+private let _jan1900 = _tdsReferenceDate(year: 1900)
+
+private func _tdsReferenceDate(year: Int) -> Date {
+    guard let date = _tdsCalendar.date(from: DateComponents(year: year, month: 1, day: 1)) else {
+        preconditionFailure("Unable to create TDS reference date for year \(year).")
+    }
+    return date
+}
