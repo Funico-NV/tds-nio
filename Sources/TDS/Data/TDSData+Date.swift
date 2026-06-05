@@ -185,7 +185,7 @@ private let _secondsInDay: Int64 = 24 * 60 * 60
 
 private let _tdsCalendar: Calendar = {
     var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+    calendar.timeZone = TimeZone.current
     return calendar
 }()
 
