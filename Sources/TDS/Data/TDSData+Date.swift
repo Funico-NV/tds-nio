@@ -74,16 +74,18 @@ extension TDSData {
         case .datetimeOffset:
             // datetimeoffset(n) is represented as a concatenation of datetime2(n) followed by one 2-byte signed integer that represents the time zone offset as the number of minutes from UTC. The time zone offset MUST be between -840 and 840.
             guard
-                let datetime = value.readDatetime2(bytes: value.readableBytes - 5, scale: metadata.scale),
-                let timezoneOffset = value.readInteger(as: Int16.self), timezoneOffset >= -840 && timezoneOffset <= 840
+                let localDateTime = value.readDatetime2(bytes: value.readableBytes - 5, scale: metadata.scale),
+                let timezoneOffset = value.readInteger(endianness: .little, as: Int16.self),
+                timezoneOffset >= -840 && timezoneOffset <= 840
             else {
                 return nil
             }
             
-            let tz = TimeZone(secondsFromGMT: Int(timezoneOffset) * 60)
-            let components = DateComponents(timeZone: tz)
-            let datetimeOffset = Calendar.current.date(byAdding: components, to: datetime)
-            return datetimeOffset
+            // `datetimeoffset` stores the local wall-clock date/time together with the
+            // offset from UTC. `readDatetime2` reconstructs that wall-clock value on a
+            // UTC calendar, so convert it to the absolute instant by subtracting the
+            // stored offset.
+            return localDateTime.addingTimeInterval(TimeInterval(-Int(timezoneOffset) * 60))
         default:
             return nil
         }
@@ -156,7 +158,7 @@ extension ByteBuffer {
             return nil
         }
         
-        return Calendar.current.date(byAdding: nanoseconds, to: date)
+        return _tdsCalendar.date(byAdding: nanoseconds, to: date)
     }
 }
 
@@ -182,4 +184,10 @@ private let _microsecondsPerSecond: Int64 = 1_000_000
 private let _secondsInDay: Int64 = 24 * 60 * 60
 private let _jan1 = Date(timeIntervalSince1970: -62_135_742_702)
 private let _jan1900 = Date(timeIntervalSince1970: -2_208_963_600)
+
+private let _tdsCalendar: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    return calendar
+}()
 
